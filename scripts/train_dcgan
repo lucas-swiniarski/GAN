@@ -1,0 +1,15 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=2:gpus=1:k80
+#PBS -l walltime=4:00:00
+#PBS -l mem=25GB
+#PBS -N train-dcgan
+#PBS -o /work/ls4411/job-output
+#PBS -M ls4411@nyu.edu
+#PBS -j oe
+
+module purge
+
+module load torch/gnu/20160623
+python dcgan.py --dataset cifar10 --dataroot . --cuda --outf ./dcgan_images --workers 1
+
+# leave a blank line at the end
