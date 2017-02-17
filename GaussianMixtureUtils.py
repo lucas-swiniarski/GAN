@@ -72,19 +72,74 @@ def plot_heat_map(SamplesToPlot):
     plt.colorbar()
     plt.show()
 
+def plot_duo_heat_map(SamplesToPlot, netD):
+    # Two subplots, unpack the axes array immediately
+    plt.close('all')
+    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(14,4))
+
+    ### PLot Heatmap Samples ...
+
+    Samples = SamplesToPlot.numpy().transpose()
+    x, y = Samples[0], Samples[1]
+    hist, xedges, yedges = np.histogram2d(x, y, bins=32, range=[[-1, 1], [-1, 1]])
+    zmin, zmax = 0, 1
+    CS = ax1.contourf(xedges[:-1], yedges[:-1], hist / hist.max(), 15, cmap=plt.cm.rainbow,
+                      vmax=zmax, vmin=zmin)
+
+    ax1.set_title("Generator distribution")
+    f.colorbar(CS, ax=ax1)
+
+    ### Plot Discriminator
+
+    delta = 1.0 / 50
+    x = np.arange(-1.0, 1.0, delta)
+    y = np.arange(-1.0, 1.0, delta)
+    X, Y = np.meshgrid(x, y)
+    z = np.zeros((X.shape[0] * X.shape[1], 2))
+
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            z[i * X.shape[0] + j] = np.append(X[i][j], Y[i][j])
+
+    input = torch.FloatTensor(X.shape[0] * X.shape[1], 2)
+    real_cpu = torch.FloatTensor(z)
+    batch_size = real_cpu.size(0)
+
+    input = Variable(input)
+    input.data.resize_(real_cpu.size()).copy_(real_cpu)
+    output_real = netD(input).data.numpy()
+
+    CS2 = ax2.pcolormesh(X, Y, output_real.reshape(X.shape))
+    f.colorbar(CS2, ax=ax2)
+    ax2.set_title("Discriminator")
+
+    ###
+
+    plt.plot()
+
+
+
 ### Wasserstein plot discriminator values
 
-def plot_discriminator(X,Y,Z):
-    # Plot the surface.
-    surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
-                           linewidth=0, antialiased=False)
+def plot_discriminator(netD):
+    delta = 1.0 / 50
+    x = np.arange(-1.0, 1.0, delta)
+    y = np.arange(-1.0, 1.0, delta)
+    X, Y = np.meshgrid(x, y)
+    z = np.zeros((X.shape[0] * X.shape[1], 2))
 
-    # Customize the z axis.
-    # ax.set_zlim(-1.01, 1.01)
-    ax.zaxis.set_major_locator(LinearLocator(10))
-    ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            z[i * X.shape[0] + j] = np.append(X[i][j], Y[i][j])
 
-    # Add a color bar which maps values to colors.
-    fig.colorbar(surf, shrink=0.5, aspect=5)
+    input = torch.FloatTensor(X.shape[0] * X.shape[1], 2)
+    real_cpu = torch.FloatTensor(z)
+    batch_size = real_cpu.size(0)
 
+    input = Variable(input)
+    input.data.resize_(real_cpu.size()).copy_(real_cpu)
+    output_real = netD(input).data.numpy()
+
+    CS = plt.pcolormesh(X, Y, output_real.reshape(X.shape))
+    plt.colorbar()
     plt.show()
