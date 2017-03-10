@@ -23,7 +23,7 @@ parser.add_argument('--dataset', type=str, default='cifar10',help='cifar10 | lsu
 parser.add_argument('--dataroot', default='../data', type=str, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
-parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
+parser.add_argument('--imageSize', type=int, default=32, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
@@ -57,21 +57,41 @@ sys.path.append("../GenerativeNN")
 if args.dataset == 'cifar10':
     import GenCifar10 as ModelG
     import DiscCifar10 as ModelD
-
+    if args.imageSize != 32:
+        print('Model do not work with this image size !')
+elif args.dataset == 'mnist':
+    import GenMnist as ModelG
+    import DiscMnist as ModelD
+    if args.imageSize != 28:
+        print('Model do not work with this image size !')
 print(args)
 
 if args.dataset == 'cifar10':
-    dataset = dset.CIFAR10(root=args.dataroot, download=True,
-                           transform=transforms.Compose([
-                               transforms.Scale(args.imageSize),
-                               transforms.ToTensor(),
-                               transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                           ])
-    )
+    transform = transforms.Compose([
+        transforms.Scale(args.imageSize),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
 
-assert dataset
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batchSize,
-                                         shuffle=True, num_workers=int(args.workers))
+    trainset = dset.CIFAR10(root=args.dataroot, train=True, download=True, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
+
+    testset = dset.CIFAR10(root=args.dataroot, train=False, download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batchSize, shuffle=False, num_workers=int(args.workers))
+elif args.dataset == 'mnist':
+    transform = transforms.Compose([
+        transforms.Scale(args.imageSize),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    trainset = dset.MNIST(root=args.dataroot, train=True, download=True, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
+
+    testset = dset.MNIST(root=args.dataroot, train=False, download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batchSize, shuffle=False, num_workers=int(args.workers))
+
+assert trainloader, testloader
 
 # custom weights initialization called on netG and netD
 def weights_init(m):
@@ -86,7 +106,11 @@ ngpu = int(args.ngpu)
 nz = int(args.nz)
 ngf = int(args.ngf)
 ndf = int(args.ndf)
-nc = 3
+
+if args.dataset == 'mnist':
+    nc = 1
+else:
+    nc = 3
 
 netG = ModelG._netG(ngpu, nz, ngf, nc)
 netG.apply(weights_init)
@@ -126,7 +150,7 @@ optimizerD = optim.Adam(netD.parameters(), lr = args.lr, betas = (args.beta1, 0.
 optimizerG = optim.Adam(netG.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
 
 for epoch in range(args.niter):
-    for i, data in enumerate(dataloader, 0):
+    for i, data in enumerate(trainloader, 0):
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
@@ -148,6 +172,7 @@ for epoch in range(args.niter):
         fake = netG(noise)
         label.data.fill_(fake_label)
         output = netD(fake.detach())
+        print(fake.size())
         errD_fake = criterion(output, label)
         errD_fake.backward()
         D_G_z1 = output.data.mean()
@@ -166,7 +191,7 @@ for epoch in range(args.niter):
         optimizerG.step()
 
         print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-              % (epoch, args.niter, i, len(dataloader),
+              % (epoch, args.niter, i, len(trainloader),
                  errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
         if i % 100 == 0:
             vutils.save_image(real_cpu,
@@ -177,4 +202,4 @@ for epoch in range(args.niter):
 
     # do checkpointing
     torch.save(netG.state_dict(), '%s/%s_netG_epoch_%d.pth' % (args.outf, args.name, epoch))
-    torch.save(netD.state_dict(), '%s/%s_netD_epoch_%d.pth' % (args.outf, args.name,vepoch))
+    torch.save(netD.state_dict(), '%s/%s_netD_epoch_%d.pth' % (args.outf, args.name, epoch))

@@ -1,4 +1,4 @@
-#!/bin/bashs
+#!/bin/bash
 #
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -16,7 +16,7 @@ module purge
 module load pytorch/intel/20170226
 module load torchvision/0.1.7
 
-cd /scratch/ls4411/research/GAN/QualityAssessor/main.py
+cd /scratch/ls4411/Research/GAN/QualityAssessor
 
 python main.py --cuda &> /scratch/ls4411/research/job-output/conv-ladder-v7-1.txt
 
