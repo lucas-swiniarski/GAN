@@ -27,10 +27,18 @@ mu_2, sigma_2 = (-0.5, -0.5), (0.01, 0.01)
 ### Get n samples from the multi gaussian defined above.
 ### Return torch tensor.
 
+mu_1_prime, sigma_1_prime = (0.5, 0.5), (0.001, 0.001)
+mu_2_prime, sigma_2_prime = (-0.5, -0.5), (0.001, 0.001)
+
 def sample(n=1):
     rand_int = np.random.randint(2, size=n)
     rand_int = np.transpose(np.tile(rand_int, (2, 1)))
     return torch.from_numpy(rand_int * np.random.normal(mu_1, sigma_1, size=(n, 2)) + (1 - rand_int) * np.random.normal(mu_2, sigma_2, size=(n, 2)))
+
+def sample_prime(n=1):
+    rand_int = np.random.randint(2, size=n)
+    rand_int = np.transpose(np.tile(rand_int, (2, 1)))
+    return torch.from_numpy(rand_int * np.random.normal(mu_1_prime, sigma_1_prime, size=(n, 2)) + (1 - rand_int) * np.random.normal(mu_2_prime, sigma_2_prime, size=(n, 2)))
 
 ### Old plot functions
 ### Plot histogram of a an array (n samples x 2)
@@ -109,14 +117,10 @@ def plot_duo_heat_map(SamplesToPlot, netD):
     input.data.resize_(real_cpu.size()).copy_(real_cpu)
     output_real = netD(input).data.numpy()
 
-    CS2 = ax2.pcolormesh(X, Y, output_real.reshape(X.shape))
+    CS2 = ax2.pcolormesh(X, Y, output_real.reshape(X.shape), cmap=plt.cm.rainbow)
     f.colorbar(CS2, ax=ax2)
     ax2.set_title("Discriminator")
-
-    ###
-
-    plt.plot()
-
+    plt.show()
 
 
 ### Wasserstein plot discriminator values
@@ -140,6 +144,6 @@ def plot_discriminator(netD):
     input.data.resize_(real_cpu.size()).copy_(real_cpu)
     output_real = netD(input).data.numpy()
 
-    CS = plt.pcolormesh(X, Y, output_real.reshape(X.shape))
+    CS = plt.pcolormesh(X, Y, output_real.reshape(X.shape), cmap=plt.cm.rainbow)
     plt.colorbar()
     plt.show()
