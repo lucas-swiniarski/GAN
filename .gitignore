@@ -1,4 +1,4 @@
 dcgan_images/*
 .DS_Store
 data/*
-TrainedNetwork/*
+TrainedNetworks/*
