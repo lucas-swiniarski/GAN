@@ -1,7 +1,0 @@
-qsub -I -l nodes=1:ppn=2:gpus=1 -l walltime=01:00:00 -l mem=14GB
-module load torch/gnu/20160623
-cd /scratch/ls4411/Research/GAN
-python dcgan.py --dataset cifar10 --dataroot . --cuda --outf ./dcgan_images
-
-cudnn/7.5v5.0
-module load cuda/7.5.18
