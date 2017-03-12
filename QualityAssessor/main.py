@@ -23,7 +23,7 @@ parser.add_argument('--dataset', type=str, default='cifar10',help='cifar10 | lsu
 parser.add_argument('--dataroot', default='../data', type=str, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
-parser.add_argument('--imageSize', type=int, default=32, help='the height / width of the input image to network')
+parser.add_argument('--imageSize', required=True, type=int, default=32, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--ndf', type=int, default=64)
@@ -36,9 +36,10 @@ parser.add_argument('--netG', default='', help="path to netG (to continue traini
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
 parser.add_argument('--outf', default='../TrainedNetworks', help='folder to output images and model checkpoints')
 parser.add_argument('--name', default='dcgan', help='Name of the saved modle')
-parser.add_argument('--wgan', type=bool, default=False, help='Training a Wasserstein Gan or a DC-GAN')
-parser.add_argument('--clamp', type=float, default=0.01, help='Clamping parameter of the W-Gan')
-parser.add_argument('--n-critic', type=float, default=5, help='Times training the discriminator vs generator')
+parser.add_argument('--Wasserstein', type=bool, default=False, help='Training a Wasserstein Gan or a DC-GAN')
+parser.add_argument('--clamp', type=bool, default=False, help='Do we clamp ? - Wasserstein Gan Discriminator')
+parser.add_argument('--c', type=float, default=0.01, help='Clamping parameter of the W-Gan')
+parser.add_argument('--n-critic', type=int, required=True, help='Times training the discriminator vs generator')
 
 args = parser.parse_args()
 
@@ -118,20 +119,15 @@ if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
-netD = ModelD._netD(ngpu, nz, ndf, nc)
+netD = ModelD._netD(ngpu, nz, ndf, nc, args.Wasserstein)
 netD.apply(weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
 print(netD)
 
-criterion = nn.BCELoss()
-
 input = torch.FloatTensor(args.batchSize, 3, args.imageSize, args.imageSize)
 noise = torch.FloatTensor(args.batchSize, nz, 1, 1)
 fixed_noise = torch.FloatTensor(args.batchSize, nz, 1, 1).normal_(0, 1)
-label = torch.FloatTensor(args.batchSize)
-real_label = 1
-fake_label = 0
 
 if args.cuda:
     netD.cuda()
@@ -141,54 +137,78 @@ if args.cuda:
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
 
 input = Variable(input)
-label = Variable(label)
+
 noise = Variable(noise)
 fixed_noise = Variable(fixed_noise)
 
-# setup optimizer
-optimizerD = optim.Adam(netD.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
-optimizerG = optim.Adam(netG.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
+if args.Wasserstein:
+    optimizerD = optim.RMSprop(netD.parameters(), lr = args.lr)
+    optimizerG = optim.RMSprop(netG.parameters(), lr = args.lr)
+else:
+    optimizerD = optim.Adam(netD.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
+    criterion = nn.BCELoss()
+    label = torch.FloatTensor(args.batchSize)
+    real_label = 1
+    fake_label = 0
+    label = Variable(label)
 
 for epoch in range(args.niter):
     for i, data in enumerate(trainloader, 0):
-        ############################
-        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-        ###########################
-        # train with real
-        netD.zero_grad()
-        real_cpu, _ = data
-        batch_size = real_cpu.size(0)
-        input.data.resize_(real_cpu.size()).copy_(real_cpu)
-        label.data.resize_(batch_size).fill_(real_label)
+        for i in range(args.n_critic):
+            ############################
+            # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+            ###########################
+            # train with real
+            netD.zero_grad()
+            real_cpu, _ = data
+            batch_size = real_cpu.size(0)
+            input.data.resize_(real_cpu.size()).copy_(real_cpu)
+            output = netD(input)
+            if args.Wasserstein:
+                errD_real = torch.mean(output)
+            else:
+                label.data.resize_(batch_size).fill_(real_label)
+                errD_real = criterion(output, label)
+                errD_real.backward()
+            D_x = output.data.mean()
 
-        output = netD(input)
-        errD_real = criterion(output, label)
-        errD_real.backward()
-        D_x = output.data.mean()
+            # train with fake
+            noise.data.resize_(batch_size, nz, 1, 1)
+            noise.data.normal_(0, 1)
+            fake = netG(noise)
+            output = netD(fake.detach())
+            if args.Wasserstein:
+                errD_fake = torch.mean(output)
+            else:
+                label.data.fill_(fake_label)
+                errD_fake = criterion(output, label)
+                errD_fake.backward()
+            D_G_z1 = output.data.mean()
 
-        # train with fake
-        noise.data.resize_(batch_size, nz, 1, 1)
-        noise.data.normal_(0, 1)
-        fake = netG(noise)
-        label.data.fill_(fake_label)
-        output = netD(fake.detach())
-        print(fake.size())
-        errD_fake = criterion(output, label)
-        errD_fake.backward()
-        D_G_z1 = output.data.mean()
-        errD = errD_real + errD_fake
-        optimizerD.step()
+            if args.Wasserstein:
+                errD = - errD_real + errD_fake
+                errD.backward()
+            else:
+                errD = errD_real + errD_fake
+            optimizerD.step()
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
         netG.zero_grad()
-        label.data.fill_(real_label) # fake labels are real for generator cost
         output = netD(fake)
-        errG = criterion(output, label)
+        if args.Wasserstein:
+            errG = - torch.mean(output)
+        else:
+            label.data.fill_(real_label) # fake labels are real for generator cost
+            errG = criterion(output, label)
         errG.backward()
         D_G_z2 = output.data.mean()
         optimizerG.step()
+        if args.clamp:
+            for p in netD.parameters():
+                p.data.clamp_(-args.c, args.c)
 
         print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
               % (epoch, args.niter, i, len(trainloader),
