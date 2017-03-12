@@ -153,62 +153,67 @@ else:
     fake_label = 0
     label = Variable(label)
 
+critic_trained_times = 0
+
 for epoch in range(args.niter):
     for i, data in enumerate(trainloader, 0):
-        for i in range(args.n_critic):
-            ############################
-            # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-            ###########################
-            # train with real
-            netD.zero_grad()
-            real_cpu, _ = data
-            batch_size = real_cpu.size(0)
-            input.data.resize_(real_cpu.size()).copy_(real_cpu)
-            output = netD(input)
-            if args.Wasserstein:
-                errD_real = torch.mean(output)
-            else:
-                label.data.resize_(batch_size).fill_(real_label)
-                errD_real = criterion(output, label)
-                errD_real.backward()
-            D_x = output.data.mean()
+        ############################
+        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+        ###########################
+        # train with real
+        netD.zero_grad()
+        real_cpu, _ = data
+        batch_size = real_cpu.size(0)
+        input.data.resize_(real_cpu.size()).copy_(real_cpu)
+        output = netD(input)
+        if args.Wasserstein:
+            errD_real = torch.mean(output)
+        else:
+            label.data.resize_(batch_size).fill_(real_label)
+            errD_real = criterion(output, label)
+            errD_real.backward()
+        D_x = output.data.mean()
 
-            # train with fake
-            noise.data.resize_(batch_size, nz, 1, 1)
-            noise.data.normal_(0, 1)
-            fake = netG(noise)
-            output = netD(fake.detach())
-            if args.Wasserstein:
-                errD_fake = torch.mean(output)
-            else:
-                label.data.fill_(fake_label)
-                errD_fake = criterion(output, label)
-                errD_fake.backward()
-            D_G_z1 = output.data.mean()
+        # train with fake
+        noise.data.resize_(batch_size, nz, 1, 1)
+        noise.data.normal_(0, 1)
+        fake = netG(noise)
+        output = netD(fake.detach())
+        if args.Wasserstein:
+            errD_fake = torch.mean(output)
+        else:
+            label.data.fill_(fake_label)
+            errD_fake = criterion(output, label)
+            errD_fake.backward()
+        D_G_z1 = output.data.mean()
 
-            if args.Wasserstein:
-                errD = - errD_real + errD_fake
-                errD.backward()
-            else:
-                errD = errD_real + errD_fake
-            optimizerD.step()
+        if args.Wasserstein:
+            errD = - errD_real + errD_fake
+            errD.backward()
+        else:
+            errD = errD_real + errD_fake
+        optimizerD.step()
+
+        critic_trained_times += 1
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
-        netG.zero_grad()
-        output = netD(fake)
-        if args.Wasserstein:
-            errG = - torch.mean(output)
-        else:
-            label.data.fill_(real_label) # fake labels are real for generator cost
-            errG = criterion(output, label)
-        errG.backward()
-        D_G_z2 = output.data.mean()
-        optimizerG.step()
-        if args.clamp:
-            for p in netD.parameters():
-                p.data.clamp_(-args.c, args.c)
+        if critic_trained_times == args.n_critic:
+            critic_trained_times = 0
+            netG.zero_grad()
+            output = netD(fake)
+            if args.Wasserstein:
+                errG = - torch.mean(output)
+            else:
+                label.data.fill_(real_label) # fake labels are real for generator cost
+                errG = criterion(output, label)
+            errG.backward()
+            D_G_z2 = output.data.mean()
+            optimizerG.step()
+            if args.clamp:
+                for p in netD.parameters():
+                    p.data.clamp_(-args.c, args.c)
 
         print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
               % (epoch, args.niter, i, len(trainloader),
