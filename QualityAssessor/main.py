@@ -132,8 +132,7 @@ fixed_noise = torch.FloatTensor(args.batchSize, nz, 1, 1).normal_(0, 1)
 if args.cuda:
     netD.cuda()
     netG.cuda()
-    criterion.cuda()
-    input, label = input.cuda(), label.cuda()
+    input = input.cuda()
     noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
 
 input = Variable(input)
@@ -152,6 +151,9 @@ else:
     real_label = 1
     fake_label = 0
     label = Variable(label)
+    if args.cuda:
+        criterion.cuda()
+        label = label.cuda()
 
 critic_trained_times = 0
 
