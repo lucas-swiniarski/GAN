@@ -81,7 +81,7 @@ def generate_latent_tensor(batchSize, nz, n_class, target=None):
 # Generate a data-set from a generator
 ###
 
-def generate_dataset(netG, size, nz, cuda, n_class):
+def generate_dataset(netG, size, batchSize, workers, nz, cuda, n_class):
     latent = torch.FloatTensor(10, nz + n_class, 1, 1)
     target = torch.LongTensor(10)
 
@@ -103,9 +103,9 @@ def generate_dataset(netG, size, nz, cuda, n_class):
             target_tensor = target
             data_tensor = output
         else:
-            target_tensor = torch.cat(target_tensor, target)
-            data_tensor = torch.cat(data_tensor, output)
+            target_tensor = torch.cat((target_tensor, target), 0)
+            data_tensor = torch.cat((data_tensor, output),0)
 
     tensorDataset = torch.utils.data.TensorDataset(data_tensor, target_tensor)
-    loader = torch.utils.data.DataLoader(tensorDataset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
+    loader = torch.utils.data.DataLoader(tensorDataset, batch_size=batchSize, shuffle=True, num_workers=int(workers))
     return loader

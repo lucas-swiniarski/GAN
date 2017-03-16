@@ -2,3 +2,4 @@ dcgan_images/*
 .DS_Store
 data/*
 TrainedNetworks/*
+*.pyc

@@ -22,6 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='cifar10',help='cifar10 | lsun | imagenet | folder | lfw ')
 parser.add_argument('--dataroot', default='../data', type=str, help='path to dataset')
 parser.add_argument('--ngf', type=int, default=64)
+parser.add_argument('--epochs', type=int, default=25, help='number of epochs to train for')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--imageSize', required=True, type=int, default=32, help='the height / width of the input image to network')
@@ -34,6 +35,7 @@ parser.add_argument('--ngpu'  , type=int, default=1, help='number of GPUs to use
 parser.add_argument('--netG', required=True,default='', help="path to netG (to create images)")
 parser.add_argument('--name', default='dcgan', help='Name of the saved modle')
 parser.add_argument('--training-size', type=int, default=-1, help='How many generated samples we train on, -1 = Infinity')
+parser.add_argument('--log-interval', type=int, default=100, help='Number of batchs between prints')
 
 args = parser.parse_args()
 
@@ -69,20 +71,21 @@ trainloader_data, validloader_data, n_class = utils.load_dataset(args.dataset, a
 assert trainloader_data, validloader_data
 
 netG = generator._netG(args.nz + n_class, args.ngf, nc)
-netG = netG.load_state_dict(torch.load(args.netG))
+netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
 ###
 # Create Generative validation set and Generative training set if necessary.
 ###
 
-
-validloader_gen = utils.generate_dataset(netG, len(validloader_data.dataset), args.nz, args.cuda, n_class)
+print('Create Validation set with generated data ...')
+validloader_gen = utils.generate_dataset(netG, 1000, args.batchSize, args.workers, args.nz, args.cuda, n_class)
 
 if args.training_size != -1:
-    trainloader_gen = utils.generate_dataset(netG, args.training_size, args.nz, args.cuda, n_class)
+    trainloader_gen = utils.generate_dataset(netG, args.training_size, args.batchSize, args.workers, args.nz, args.cuda, n_class)
 
 optimizer = optim.Adam(model.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
+criterion = nn.CrossEntropyLoss()
 
 def train(epoch, train_loader=None):
     model.train()
@@ -113,13 +116,13 @@ def train(epoch, train_loader=None):
         for batch_idx in range(len(trainloader_data)):
             labels = torch.FloatTensor(args.batchSize).random_(0, 9)
             target.data.copy_(labels)
-            latent.data.copy_(utils.generate_latent_tensor(args.batchSize, args.nz, n_class, labels))
+            latent.data.copy_(utils.generate_latent_tensor(args.batchSize, args.nz, n_class, labels.long()))
 
             data = netG(latent)
 
             optimizer.zero_grad()
             output = model(data)
-            loss = F.nll_loss(output, target)
+            loss = criterion(output, target)
             loss.backward()
             optimizer.step()
             if batch_idx % args.log_interval == 0:
