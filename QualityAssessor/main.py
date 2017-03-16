@@ -4,14 +4,11 @@ import os
 import random
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
-import torch.utils.data
-import torchvision.datasets as dset
-import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
+import utils
 
 # For printing in real time on HPC
 import sys
@@ -59,11 +56,13 @@ sys.path.append("../GenerativeNN")
 if args.dataset == 'cifar10':
     import GenCifar10 as ModelG
     import DiscCifar10 as ModelD
+    nc = 3
     if args.imageSize != 32:
         print('Model do not work with this image size !')
 elif args.dataset == 'mnist':
     import GenMnist as ModelG
     import DiscMnist as ModelD
+    nc = 1
     if args.imageSize != 28:
         print('Model do not work with this image size !')
 print(args)
@@ -72,69 +71,9 @@ print(args)
 # Import data-sets.
 ###
 
-n_class = 0 # The number of classes
-
-if args.dataset == 'cifar10':
-    transform = transforms.Compose([
-        transforms.Scale(args.imageSize),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-
-    trainset = dset.CIFAR10(root=args.dataroot, train=True, download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
-
-    testset = dset.CIFAR10(root=args.dataroot, train=False, download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batchSize, shuffle=False, num_workers=int(args.workers))
-    n_class = 10
-elif args.dataset == 'mnist':
-    transform = transforms.Compose([
-        transforms.Scale(args.imageSize),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-
-    trainset = dset.MNIST(root=args.dataroot, train=True, download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
-
-    testset = dset.MNIST(root=args.dataroot, train=False, download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=args.batchSize, shuffle=False, num_workers=int(args.workers))
-    n_class = 10 # The number of classes
+trainloader, testloader, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers)
 
 assert trainloader, testloader
-
-###
-# custom weights initialization called on netG and netD.
-# Allows networks to be efficiently trained.
-###
-
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
-
-###
-# Parallel forward if using more than one gpu.
-###
-
-def parallel_forward(model, input, ngpu):
-    gpu_ids = None
-    if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
-        gpu_ids = range(self.ngpu)
-    return nn.parallel.data_parallel(model, input, gpu_ids)
-
-###
-# One hot encoder : Given a target vector ( batchsize x 1 ) : return matrix (batchsize x n_class )
-###
-
-def one_hot_encoder(target):
-    y_one_hot = torch.FloatTensor(target.size(0), n_class)
-    y_one_hot.zero_()
-    y_one_hot.scatter_(1, target.unsqueeze(1), 1)
-    return y_one_hot
 
 ###
 # Initialize networks and useful variables depending on training loss ( Jensen-Shanon, Wasserstein ).
@@ -148,42 +87,41 @@ if args.ac_gan:
 ngf = int(args.ngf)
 ndf = int(args.ndf)
 
-if args.dataset == 'mnist':
-    nc = 1
-else:
-    nc = 3
-
 netG = ModelG._netG(n_input, ngf, nc)
-netG.apply(weights_init)
+netG.apply(utils.weights_init)
 if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
 netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class)
-netD.apply(weights_init)
+netD.apply(utils.weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
 print(netD)
 
 input = torch.FloatTensor(args.batchSize, 3, args.imageSize, args.imageSize)
-noise = torch.FloatTensor(args.batchSize, nz, 1, 1)
+if args.ac_gan:
+    latent = torch.FloatTensor(args.batchSize, nz + n_class, 1, 1)
+else:
+    latent = torch.FloatTensor(args.batchSize, nz, 1, 1)
+
 fixed_latent = torch.FloatTensor(100, nz, 1, 1).normal_(0, 1)
 
 if args.ac_gan:
     criterion_c = nn.CrossEntropyLoss()
     if args.cuda:
         criterion_c.cuda()
-    fixed_latent = torch.cat((one_hot_encoder(torch.range(0, 9).repeat(10).long()), torch.FloatTensor(100, nz).normal_(0, 1)), 1)
+    fixed_latent = utils.generate_latent_tensor(100, nz, n_class, torch.range(0, 9).repeat(10).long())
     fixed_latent.resize_(100, nz + n_class, 1, 1)
 
 if args.cuda:
     netD.cuda()
     netG.cuda()
     input = input.cuda()
-    noise, fixed_latent = noise.cuda(), fixed_latent.cuda()
+    latent, fixed_latent = latent.cuda(), fixed_latent.cuda()
 
 input = Variable(input)
-noise = Variable(noise)
+latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
 
 if args.Wasserstein:
@@ -215,9 +153,9 @@ for epoch in range(args.niter):
         batch_size = data.size(0)
         input.data.resize_(data.size()).copy_(data)
         if args.ac_gan:
-            output_rf, output_c = parallel_forward(netD, input, ngpu)
+            output_rf, output_c = utils.parallel_forward(netD, input, ngpu)
         else:
-            output_rf = parallel_forward(netD, input, ngpu)
+            output_rf = utils.parallel_forward(netD, input, ngpu)
 
         errD_real = 0
         if args.ac_gan:
@@ -235,20 +173,16 @@ for epoch in range(args.niter):
         # train with fake
 
         if args.ac_gan:
-            noise.data.resize_(batch_size, nz)
-            noise.data.normal_(0, 1)
-            latent = torch.cat((Variable(one_hot_encoder(target.data)), noise), 1)
-            latent.data.resize_(batch_size, nz + n_class, 1, 1)
+            latent.data.resize_(batch_size, nz + n_class, 1, 1).copy_(utils.generate_latent_tensor(batch_size, nz, n_class, target.data))
         else:
-            noise.data.resize_(batch_size, nz, 1, 1)
-            noise.data.normal_(0, 1)
-            latent = noise
+            latent.data.resize_(batch_size, nz, 1, 1)
+            latent.data.normal_(0, 1)
 
-        fake = parallel_forward(netG, latent, ngpu)
+        fake = utils.parallel_forward(netG, latent, ngpu)
         if args.ac_gan:
-            output_rf, output_c = parallel_forward(netD, input, ngpu)
+            output_rf, output_c = utils.parallel_forward(netD, input, ngpu)
         else:
-            output_rf = parallel_forward(netD, input, ngpu)
+            output_rf = utils.parallel_forward(netD, input, ngpu)
 
         errD_fake = 0
         if args.ac_gan:
@@ -281,9 +215,9 @@ for epoch in range(args.niter):
             critic_trained_times = 0
             netG.zero_grad()
             if args.ac_gan:
-                output_rf, output_c = parallel_forward(netD, input, ngpu)
+                output_rf, output_c = utils.parallel_forward(netD, input, ngpu)
             else:
-                output_rf = parallel_forward(netD, input, ngpu)
+                output_rf = utils.parallel_forward(netD, input, ngpu)
 
             errG = 0
             if args.ac_gan:
