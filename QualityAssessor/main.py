@@ -20,6 +20,7 @@ sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='cifar10',help='cifar10 | lsun | imagenet | folder | lfw ')
+parser.add_argument('--ac-gan', type=bool, default=False, help='Use a class AC-GAN')
 parser.add_argument('--dataroot', default='../data', type=str, help='path to dataset')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
@@ -49,7 +50,7 @@ random.seed(args.manualSeed)
 torch.manual_seed(args.manualSeed)
 
 ###
-# Import Generative and Disriminative Networks.
+# Import Generative and Disriminative Networks, depending on the data-set ( image size).
 ###
 
 sys.path.append("../DiscriminativeNN")
@@ -67,6 +68,12 @@ elif args.dataset == 'mnist':
         print('Model do not work with this image size !')
 print(args)
 
+###
+# Import data-sets.
+###
+
+n_class = 0 # The number of classes
+
 if args.dataset == 'cifar10':
     transform = transforms.Compose([
         transforms.Scale(args.imageSize),
@@ -79,6 +86,7 @@ if args.dataset == 'cifar10':
 
     testset = dset.CIFAR10(root=args.dataroot, train=False, download=True, transform=transform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batchSize, shuffle=False, num_workers=int(args.workers))
+    n_class = 10
 elif args.dataset == 'mnist':
     transform = transforms.Compose([
         transforms.Scale(args.imageSize),
@@ -91,10 +99,15 @@ elif args.dataset == 'mnist':
 
     testset = dset.MNIST(root=args.dataroot, train=False, download=True, transform=transform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=args.batchSize, shuffle=False, num_workers=int(args.workers))
+    n_class = 10 # The number of classes
 
 assert trainloader, testloader
 
-# custom weights initialization called on netG and netD
+###
+# custom weights initialization called on netG and netD.
+# Allows networks to be efficiently trained.
+###
+
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -103,8 +116,35 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+###
+# Parallel forward if using more than one gpu.
+###
+
+def parallel_forward(model, input, ngpu):
+    gpu_ids = None
+    if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
+        gpu_ids = range(self.ngpu)
+    return nn.parallel.data_parallel(model, input, gpu_ids)
+
+###
+# One hot encoder : Given a target vector ( batchsize x 1 ) : return matrix (batchsize x n_class )
+###
+
+def one_hot_encoder(target):
+    y_one_hot = torch.FloatTensor(target.size(0), n_class)
+    y_one_hot.zero_()
+    y_one_hot.scatter_(1, target.unsqueeze(1), 1)
+    return y_one_hot
+
+###
+# Initialize networks and useful variables depending on training loss ( Jensen-Shanon, Wasserstein ).
+###
+
 ngpu = int(args.ngpu)
 nz = int(args.nz)
+n_input = nz
+if args.ac_gan:
+    n_input += n_class
 ngf = int(args.ngf)
 ndf = int(args.ndf)
 
@@ -113,13 +153,13 @@ if args.dataset == 'mnist':
 else:
     nc = 3
 
-netG = ModelG._netG(ngpu, nz, ngf, nc)
+netG = ModelG._netG(n_input, ngf, nc)
 netG.apply(weights_init)
 if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
-netD = ModelD._netD(ngpu, nz, ndf, nc, args.Wasserstein)
+netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class)
 netD.apply(weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
@@ -127,18 +167,24 @@ print(netD)
 
 input = torch.FloatTensor(args.batchSize, 3, args.imageSize, args.imageSize)
 noise = torch.FloatTensor(args.batchSize, nz, 1, 1)
-fixed_noise = torch.FloatTensor(args.batchSize, nz, 1, 1).normal_(0, 1)
+fixed_latent = torch.FloatTensor(100, nz, 1, 1).normal_(0, 1)
+
+if args.ac_gan:
+    criterion_c = nn.CrossEntropyLoss()
+    if args.cuda:
+        criterion_c.cuda()
+    fixed_latent = torch.cat((one_hot_encoder(torch.range(0, 9).repeat(10).long()), torch.FloatTensor(100, nz).normal_(0, 1)), 1)
+    fixed_latent.resize_(100, nz + n_class, 1, 1)
 
 if args.cuda:
     netD.cuda()
     netG.cuda()
     input = input.cuda()
-    noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
+    noise, fixed_latent = noise.cuda(), fixed_latent.cuda()
 
 input = Variable(input)
-
 noise = Variable(noise)
-fixed_noise = Variable(fixed_noise)
+fixed_latent = Variable(fixed_latent)
 
 if args.Wasserstein:
     optimizerD = optim.RMSprop(netD.parameters(), lr = args.lr)
@@ -146,48 +192,77 @@ if args.Wasserstein:
 else:
     optimizerD = optim.Adam(netD.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
-    criterion = nn.BCELoss()
+    criterion_rf = nn.BCELoss()
     label = torch.FloatTensor(args.batchSize)
     real_label = 1
     fake_label = 0
     label = Variable(label)
     if args.cuda:
-        criterion.cuda()
+        criterion_rf.cuda()
         label = label.cuda()
 
 critic_trained_times = 0
 
 for epoch in range(args.niter):
-    for i, data in enumerate(trainloader, 0):
+    for i, (data, target) in enumerate(trainloader, 0):
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
+
         # train with real
+
         netD.zero_grad()
-        real_cpu, _ = data
-        batch_size = real_cpu.size(0)
-        input.data.resize_(real_cpu.size()).copy_(real_cpu)
-        output = netD(input)
+        batch_size = data.size(0)
+        input.data.resize_(data.size()).copy_(data)
+        if args.ac_gan:
+            output_rf, output_c = parallel_forward(netD, input, ngpu)
+        else:
+            output_rf = parallel_forward(netD, input, ngpu)
+
+        errD_real = 0
+        if args.ac_gan:
+            target = Variable(target)
+            errD_real += criterion_c(output_c, target)
+
         if args.Wasserstein:
-            errD_real = torch.mean(output)
+            errD_real += torch.mean(output_rf)
         else:
             label.data.resize_(batch_size).fill_(real_label)
-            errD_real = criterion(output, label)
+            errD_real += criterion_rf(output_rf, label)
             errD_real.backward()
-        D_x = output.data.mean()
+        D_x = output_rf.data.mean()
 
         # train with fake
-        noise.data.resize_(batch_size, nz, 1, 1)
-        noise.data.normal_(0, 1)
-        fake = netG(noise)
-        output = netD(fake.detach())
+
+        if args.ac_gan:
+            noise.data.resize_(batch_size, nz)
+            noise.data.normal_(0, 1)
+            latent = torch.cat((Variable(one_hot_encoder(target.data)), noise), 1)
+            latent.data.resize_(batch_size, nz + n_class, 1, 1)
+        else:
+            noise.data.resize_(batch_size, nz, 1, 1)
+            noise.data.normal_(0, 1)
+            latent = noise
+
+        fake = parallel_forward(netG, latent, ngpu)
+        if args.ac_gan:
+            output_rf, output_c = parallel_forward(netD, input, ngpu)
+        else:
+            output_rf = parallel_forward(netD, input, ngpu)
+
+        errD_fake = 0
+        if args.ac_gan:
+            errD_fake += criterion_c(output_c, target)
+
         if args.Wasserstein:
-            errD_fake = torch.mean(output)
+            errD_fake += torch.mean(output_rf)
         else:
             label.data.fill_(fake_label)
-            errD_fake = criterion(output, label)
+            errD_fake += criterion_rf(output_rf, label)
             errD_fake.backward()
-        D_G_z1 = output.data.mean()
+        D_G_z1 = output_rf.data.mean()
+
+        # Step
 
         if args.Wasserstein:
             errD = - errD_real + errD_fake
@@ -201,17 +276,26 @@ for epoch in range(args.niter):
         ############################
         # (2) Update G network: maximize log(D(G(z)))
         ###########################
+
         if critic_trained_times == args.n_critic:
             critic_trained_times = 0
             netG.zero_grad()
-            output = netD(fake)
+            if args.ac_gan:
+                output_rf, output_c = parallel_forward(netD, input, ngpu)
+            else:
+                output_rf = parallel_forward(netD, input, ngpu)
+
+            errG = 0
+            if args.ac_gan:
+                errG += criterion_c(output_c, target)
             if args.Wasserstein:
-                errG = - torch.mean(output)
+                errG += - torch.mean(output_rf)
             else:
                 label.data.fill_(real_label) # fake labels are real for generator cost
-                errG = criterion(output, label)
+                errG += criterion_rf(output_rf, label)
+
             errG.backward()
-            D_G_z2 = output.data.mean()
+            D_G_z2 = output_rf.data.mean()
             optimizerG.step()
             if args.clamp:
                 for p in netD.parameters():
@@ -221,11 +305,12 @@ for epoch in range(args.niter):
                   % (epoch, args.niter, i, len(trainloader),
                      errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
         if i % 100 == 0:
-            vutils.save_image(real_cpu,
+            vutils.save_image(data,
                     '%s/%s_real_samples.png' % (args.outf, args.name))
-            fake = netG(fixed_noise)
+            fake = netG(fixed_latent)
             vutils.save_image(fake.data,
-                    '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch))
+                    '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
+                    , nrow=10)
 
     # do checkpointing
     torch.save(netG.state_dict(), '%s/%s_netG_epoch_%d.pth' % (args.outf, args.name, epoch))
