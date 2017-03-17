@@ -3,10 +3,10 @@ import torch
 import torch.nn.functional as F
 
 class _netD(nn.Module):
-    def __init__(self, ndf, nc, wasserstein, dcgan, n_class):
+    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class):
         super(_netD, self).__init__()
         self.wasserstein = wasserstein
-        self.dcgan = dcgan
+        self.ac_gan = ac_gan
         self.n_class = n_class
 
         self.conv1 = nn.Conv2d(nc, ndf, 4, 2, 1, bias=False)
@@ -20,29 +20,31 @@ class _netD(nn.Module):
         self.conv4 = nn.Conv2d(ndf * 4, ndf * 8, 3, 1, 1, bias=False)
         self.bn4 = nn.BatchNorm2d(ndf * 8)
 
-        self.conv5 = nn.Conv2d(ndf * 8, 1, 3, bias=False)
-        if dcgan:
-            self.conv5_classification = nn.Conv2d(ndf * 8, self.n_class, 3)
+        if ac_gan:
+            self.conv5 = nn.Conv2d(ndf * 8, 1 + self.n_class, 3, bias=False)
+        else:
+            self.conv5 = nn.Conv2d(ndf * 8, 1, 3, bias=False)
 
     def forward(self, input):
         input = self.conv1(input)
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
-
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        
         input = self.bn2(self.conv2(input))
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn3(self.conv3(input))
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn4(self.conv4(input))
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
-        realfake = self.conv5(input)
+        input = self.conv5(input)
+
         if not self.wasserstein:
-            realfake = F.sigmoid(realfake)
+            input[:,0] = F.sigmoid(input[:,0])
 
-        if not self.dcgan:
-            return realfake.view(-1, 1)
+        if not self.ac_gan:
+            return input.view(-1, 1)
         else:
-            input = self.conv5_classification(input)
-            return realfake.view(-1, 1), input.view(-1, self.n_class)
+            input = input.view(-1, 1 + self.n_class)
+            return input[:,0], input[:,1:]

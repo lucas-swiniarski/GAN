@@ -184,9 +184,9 @@ for epoch in range(1, args.epochs + 1):
 
         fake = utils.parallel_forward(netG, latent, ngpu)
         if args.ac_gan:
-            output_rf, output_c = utils.parallel_forward(netD, input, ngpu)
+            output_rf, output_c = utils.parallel_forward(netD, fake.detach(), ngpu)
         else:
-            output_rf = utils.parallel_forward(netD, input, ngpu)
+            output_rf = utils.parallel_forward(netD, fake.detach(), ngpu)
 
         errD_fake = 0
         if args.ac_gan:
@@ -218,10 +218,11 @@ for epoch in range(1, args.epochs + 1):
         if critic_trained_times == args.n_critic:
             critic_trained_times = 0
             netG.zero_grad()
+
             if args.ac_gan:
-                output_rf, output_c = utils.parallel_forward(netD, input, ngpu)
+                output_rf, output_c = utils.parallel_forward(netD, fake, ngpu)
             else:
-                output_rf = utils.parallel_forward(netD, input, ngpu)
+                output_rf = utils.parallel_forward(netD, fake, ngpu)
 
             errG = 0
             if args.ac_gan:
@@ -240,7 +241,7 @@ for epoch in range(1, args.epochs + 1):
                     p.data.clamp_(-args.c, args.c)
 
             print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                  % (epoch, args.niter, i, len(trainloader),
+                  % (epoch, args.epochs, i, len(trainloader),
                      errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
         if i % 100 == 0:
             vutils.save_image(data,

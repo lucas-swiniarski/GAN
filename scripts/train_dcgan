@@ -18,7 +18,7 @@ module load torchvision/0.1.7
 
 cd /scratch/ls4411/Research/GAN/QualityAssessor
 
-python main.py --dataset=mnist --imageSize=28 --cuda --name=wgan --Wasserstein=True --n-critic=5 --clamp=True &> /scratch/ls4411/Research/job-output/wgan-mnist.txt
+python main.py --dataset=mnist --imageSize=28 --cuda --n-critic=1 --ac-gan=True &> /scratch/ls4411/Research/job-output/wgan-mnist.txt
 
 exit 0
 
