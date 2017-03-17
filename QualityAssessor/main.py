@@ -114,17 +114,21 @@ if args.ac_gan:
     if args.cuda:
         criterion_c.cuda()
     fixed_latent = utils.generate_latent_tensor(100, nz, n_class, torch.range(0, 9).repeat(10).long())
+    fixed_latent_2 = utils.generate_latent_tensor(100, nz, n_class, torch.FloatTensor(10).fill_(0).repeat(10).long())
     fixed_latent.resize_(100, nz + n_class, 1, 1)
+    fixed_latent_2.resize_(100, nz + n_class, 1, 1)
 
 if args.cuda:
     netD.cuda()
     netG.cuda()
     input = input.cuda()
     latent, fixed_latent, label_class = latent.cuda(), fixed_latent.cuda(), label_class.cuda()
+    fixed_latent_2 = fixed_latent_2.cuda()
 
 input = Variable(input)
 latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
+fixed_latent_2 = Variable(fixed_latent_2)
 label_class = Variable(label_class)
 
 if args.Wasserstein:
@@ -253,6 +257,10 @@ for epoch in range(1, args.epochs + 1):
             fake = netG(fixed_latent)
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
+                    , nrow=10)
+            fake = netG(fixed_latent_2)
+            vutils.save_image(fake.data,
+                    '%s/%s_fake_samples_epoch_c0_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
 
     # do checkpointing
