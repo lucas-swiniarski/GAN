@@ -63,8 +63,6 @@ elif args.dataset == 'mnist':
 print(args)
 
 model = classifier.Net()
-if args.cuda:
-    model.cuda()
 
 trainloader_data, validloader_data, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers)
 
@@ -83,6 +81,10 @@ validloader_gen = utils.generate_dataset(netG, 1000, args.batchSize, args.worker
 
 if args.training_size != -1:
     trainloader_gen = utils.generate_dataset(netG, args.training_size, args.batchSize, args.workers, args.nz, args.cuda, n_class)
+
+if args.cuda:
+    netG.cuda()
+    model.cuda()
 
 optimizer = optim.Adam(model.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
 criterion = nn.CrossEntropyLoss()
@@ -134,7 +136,7 @@ def test(epoch, valid_loader, dataset_name):
     model.eval()
     test_loss = 0
     correct = 0
-    for data, target in valid_loader:
+    for batch_idx, (data, target) in enumerate(valid_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)

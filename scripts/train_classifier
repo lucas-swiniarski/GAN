@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=4
+#SBATCH --time=2:00:00
+#SBATCH --mem=10GB
+#SBATCH --job-name=generator-classifiers
+#SBATCH --mail-type=END
+#SBATCH --mail-user=ls4411@nyu.edu
+#SBATCH --output=classify_\%j.out
+
+module purge
+module load pytorch/intel/20170226
+module load torchvision/0.1.7
+
+cd /scratch/ls4411/Research/GAN/QualityAssessor
+
+python classify.py --dataset=mnist --imageSize=28 --cuda --n-critic=1 --ac-gan=True --netG=../TrainedNetworks/acgan-100-v1_netG_epoch_26.pth &> /scratch/ls4411/Research/job-output/classify-acgan-v2-e26.txt
+
+exit 0
+
+## Empty line

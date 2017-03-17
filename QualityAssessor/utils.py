@@ -78,19 +78,15 @@ def generate_latent_tensor(batchSize, nz, n_class, target=None):
     return torch.cat((one_hot_encoder(target, n_class), torch.FloatTensor(batchSize, nz).normal_(0, 1)), 1).unsqueeze(2).unsqueeze(3)
 
 ###
-# Generate a data-set from a generator
+# Generate a data-set from a generator. Care to give a non-cuda generator !
 ###
 
-def generate_dataset(netG, size, batchSize, workers, nz, cuda, n_class):
+def generate_dataset(netG, size, batchSize, workers, nz, n_class):
     latent = torch.FloatTensor(10, nz + n_class, 1, 1)
     target = torch.LongTensor(10)
 
     latent = Variable(latent)
     target = Variable(target)
-
-    if cuda:
-        latent = latent.cuda()
-        target = target.cuda()
 
     batch_number = int(size) / 10
     for i in range(batch_number):
