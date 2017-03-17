@@ -54,8 +54,8 @@ def weights_init(m):
 
 def parallel_forward(model, input, ngpu):
     gpu_ids = None
-    if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
-        gpu_ids = range(self.ngpu)
+    if isinstance(input.data, torch.cuda.FloatTensor) and ngpu > 1:
+        gpu_ids = range(ngpu)
     return nn.parallel.data_parallel(model, input, gpu_ids)
 
 ###

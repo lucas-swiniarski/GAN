@@ -100,6 +100,8 @@ if args.netD != '':
 print(netD)
 
 input = torch.FloatTensor(args.batchSize, 3, args.imageSize, args.imageSize)
+label_class = torch.LongTensor(args.batchSize)
+
 if args.ac_gan:
     latent = torch.FloatTensor(args.batchSize, nz + n_class, 1, 1)
 else:
@@ -118,11 +120,12 @@ if args.cuda:
     netD.cuda()
     netG.cuda()
     input = input.cuda()
-    latent, fixed_latent = latent.cuda(), fixed_latent.cuda()
+    latent, fixed_latent, label_class = latent.cuda(), fixed_latent.cuda(), label_class.cuda()
 
 input = Variable(input)
 latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
+label_class = Variable(label_class)
 
 if args.Wasserstein:
     optimizerD = optim.RMSprop(netD.parameters(), lr = args.lr)
@@ -131,13 +134,13 @@ else:
     optimizerD = optim.Adam(netD.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
     criterion_rf = nn.BCELoss()
-    label = torch.FloatTensor(args.batchSize)
+    label_rf = torch.FloatTensor(args.batchSize)
     real_label = 1
     fake_label = 0
-    label = Variable(label)
+    label_rf = Variable(label_rf)
     if args.cuda:
         criterion_rf.cuda()
-        label = label.cuda()
+        label_rf = label_rf.cuda()
 
 critic_trained_times = 0
 
@@ -152,6 +155,8 @@ for epoch in range(1, args.epochs + 1):
         netD.zero_grad()
         batch_size = data.size(0)
         input.data.resize_(data.size()).copy_(data)
+        label_class.data.resize_(batch_size).copy_(target)
+
         if args.ac_gan:
             output_rf, output_c = utils.parallel_forward(netD, input, ngpu)
         else:
@@ -165,8 +170,8 @@ for epoch in range(1, args.epochs + 1):
         if args.Wasserstein:
             errD_real += torch.mean(output_rf)
         else:
-            label.data.resize_(batch_size).fill_(real_label)
-            errD_real += criterion_rf(output_rf, label)
+            label_rf.data.resize_(batch_size).fill_(real_label)
+            errD_real += criterion_rf(output_rf, label_rf)
             errD_real.backward()
         D_x = output_rf.data.mean()
 
@@ -191,8 +196,8 @@ for epoch in range(1, args.epochs + 1):
         if args.Wasserstein:
             errD_fake += torch.mean(output_rf)
         else:
-            label.data.fill_(fake_label)
-            errD_fake += criterion_rf(output_rf, label)
+            label_rf.data.fill_(fake_label)
+            errD_fake += criterion_rf(output_rf, label_rf)
             errD_fake.backward()
         D_G_z1 = output_rf.data.mean()
 
@@ -225,8 +230,8 @@ for epoch in range(1, args.epochs + 1):
             if args.Wasserstein:
                 errG += - torch.mean(output_rf)
             else:
-                label.data.fill_(real_label) # fake labels are real for generator cost
-                errG += criterion_rf(output_rf, label)
+                label_rf.data.fill_(real_label) # fake labels are real for generator cost
+                errG += criterion_rf(output_rf, label_rf)
 
             errG.backward()
             D_G_z2 = output_rf.data.mean()
