@@ -164,8 +164,7 @@ for epoch in range(1, args.epochs + 1):
 
         errD_real = 0
         if args.ac_gan:
-            target = Variable(target)
-            errD_real += criterion_c(output_c, target)
+            errD_real += criterion_c(output_c, label_class)
 
         if args.Wasserstein:
             errD_real += torch.mean(output_rf)
@@ -178,7 +177,7 @@ for epoch in range(1, args.epochs + 1):
         # train with fake
 
         if args.ac_gan:
-            latent.data.resize_(batch_size, nz + n_class, 1, 1).copy_(utils.generate_latent_tensor(batch_size, nz, n_class, target.data))
+            latent.data.resize_(batch_size, nz + n_class, 1, 1).copy_(utils.generate_latent_tensor(batch_size, nz, n_class, target))
         else:
             latent.data.resize_(batch_size, nz, 1, 1)
             latent.data.normal_(0, 1)
@@ -191,7 +190,7 @@ for epoch in range(1, args.epochs + 1):
 
         errD_fake = 0
         if args.ac_gan:
-            errD_fake += criterion_c(output_c, target)
+            errD_fake += criterion_c(output_c, label_class)
 
         if args.Wasserstein:
             errD_fake += torch.mean(output_rf)
@@ -226,7 +225,7 @@ for epoch in range(1, args.epochs + 1):
 
             errG = 0
             if args.ac_gan:
-                errG += criterion_c(output_c, target)
+                errG += criterion_c(output_c, label_class)
             if args.Wasserstein:
                 errG += - torch.mean(output_rf)
             else:
