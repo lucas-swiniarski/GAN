@@ -239,10 +239,14 @@ for epoch in range(1, args.epochs + 1):
             if args.clamp:
                 for p in netD.parameters():
                     p.data.clamp_(-args.c, args.c)
-
-            print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-                  % (epoch, args.epochs, i, len(trainloader),
-                     errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
+            if args.ac_gan:
+                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_C: %.4f Loss_G: %.2f D(x): %.2f D(G(z)): %.4f / %.4f'
+                      % (epoch, args.epochs, i, len(trainloader),
+                         errD_real.data[0], errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
+            else:
+                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
+                      % (epoch, args.epochs, i, len(trainloader),
+                         errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
         if i % 100 == 0:
             vutils.save_image(data,
                     '%s/%s_real_samples.png' % (args.outf, args.name))
