@@ -20,29 +20,51 @@ class _netD(nn.Module):
         self.conv4 = nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False)
         self.bn4 = nn.BatchNorm2d(ndf * 8)
 
-        self.conv5 = nn.Conv2d(ndf * 8, 1, 2, 1, 0, bias=False)
-        if dcgan:
-            self.conv5_classification = nn.Conv2d(ndf * 8, self.n_class, 2, 1, 0, bias=False)
+        if ac_gan:
+            self.conv5 = nn.Conv2d(ndf * 8, 1 + self.n_class, 2, 1, 0, bias=bias)
+        else:
+            self.conv5 = nn.Conv2d(ndf * 8, 1, 2, 1, 0, bias=bias)
+
+    def clamp(self, c, clamping_method):
+        if clamping_method == 'clamp':
+            self.conv1.weight.data.clamp_(-c, c)
+            self.conv2.weight.data.clamp_(-c, c)
+            self.conv3.weight.data.clamp_(-c, c)
+            self.conv4.weight.data.clamp_(-c, c)
+            self.conv5.weight.data[0].clamp_(-c, c)
+        elif clamping_method == 'max_normalize':
+            self.conv1.weight.data.div_(self.conv1.weight.data.abs().max()).mul_(c)
+            self.conv2.weight.data.div_(self.conv2.weight.data.abs().max()).mul_(c)
+            self.conv3.weight.data.div_(self.conv3.weight.data.abs().max()).mul_(c)
+            self.conv4.weight.data.div_(self.conv4.weight.data.abs().max()).mul_(c)
+            self.conv5.weight.data[0].div_(self.conv5.weight.data[0].abs().max()).mul_(c)
+        elif clamping_method == 'normalize':
+            self.conv1.weight.data.add_(-self.conv1.weight.data.mean()).div_(self.conv1.weight.data.std()).mul_(c)
+            self.conv2.weight.data.add_(-self.conv2.weight.data.mean()).div_(self.conv2.weight.data.std()).mul_(c)
+            self.conv3.weight.data.add_(-self.conv3.weight.data.mean()).div_(self.conv3.weight.data.std()).mul_(c)
+            self.conv4.weight.data.add_(-self.conv4.weight.data.mean()).div_(self.conv4.weight.data.std()).mul_(c)
+            self.conv5.weight.data[0].add_(-self.conv5.weight.data[0].mean()).div_(self.conv5.weight.data[0].std()).mul_(c)
 
     def forward(self, input):
         input = self.conv1(input)
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn2(self.conv2(input))
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn3(self.conv3(input))
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn4(self.conv4(input))
-        input = F.leaky_relu(input, negative_slope=0.2, inplace=True)
+        F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
-        realfake = self.conv5(input)
+        input = self.conv5(input)
+
         if not self.wasserstein:
-            realfake = F.sigmoid(realfake)
+            input[:,0] = F.sigmoid(input[:,0])
 
-        if not self.dcgan:
-            return realfake.view(-1, 1)
+        if not self.ac_gan:
+            return input.view(-1, 1)
         else:
-            input = self.conv5_classification(input)
-            return realfake.view(-1, 1), input.view(-1, self.n_class))
+            input = input.view(-1, 1 + self.n_class)
+            return input[:,0], input[:,1:]

@@ -18,7 +18,7 @@ module load torchvision/0.1.7
 
 cd /scratch/ls4411/Research/GAN/QualityAssessor
 
-python classify.py --dataset=mnist --imageSize=28 --cuda --n-critic=1 --ac-gan=True --netG=../TrainedNetworks/acgan-100-v1_netG_epoch_26.pth &> /scratch/ls4411/Research/job-output/classify-acgan-v2-e26.txt
+python classify.py --dataset=mnist --imageSize=28 --cuda --netG=../TrainedNetworks/acgan-100-v1_netG_epoch_26.pth &> /scratch/ls4411/Research/job-output/classify-acgan-v2-e26.txt
 
 exit 0
 

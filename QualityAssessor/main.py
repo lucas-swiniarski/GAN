@@ -38,6 +38,8 @@ parser.add_argument('--Wasserstein', type=bool, default=False, help='Training a 
 parser.add_argument('--clamp', type=bool, default=False, help='Do we clamp ? - Wasserstein Gan Discriminator')
 parser.add_argument('--c', type=float, default=0.01, help='Clamping parameter of the W-Gan')
 parser.add_argument('--n-critic', type=int, required=True, help='Times training the discriminator vs generator')
+parser.add_argument('--bias', type=bool, default=False, help='Bias term on convolutions on discriminator')
+parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp | normalize | max_normalize')
 
 args = parser.parse_args()
 
@@ -93,7 +95,7 @@ if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
-netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class)
+netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class, args.bias)
 netD.apply(utils.weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
@@ -114,21 +116,17 @@ if args.ac_gan:
     if args.cuda:
         criterion_c.cuda()
     fixed_latent = utils.generate_latent_tensor(100, nz, n_class, torch.range(0, 9).repeat(10).long())
-    fixed_latent_2 = utils.generate_latent_tensor(100, nz, n_class, torch.FloatTensor(10).fill_(0).repeat(10).long())
     fixed_latent.resize_(100, nz + n_class, 1, 1)
-    fixed_latent_2.resize_(100, nz + n_class, 1, 1)
 
 if args.cuda:
     netD.cuda()
     netG.cuda()
     input = input.cuda()
     latent, fixed_latent, label_class = latent.cuda(), fixed_latent.cuda(), label_class.cuda()
-    fixed_latent_2 = fixed_latent_2.cuda()
 
 input = Variable(input)
 latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
-fixed_latent_2 = Variable(fixed_latent_2)
 label_class = Variable(label_class)
 
 if args.Wasserstein:
@@ -168,10 +166,11 @@ for epoch in range(1, args.epochs + 1):
 
         errD_real = 0
         if args.ac_gan:
-            errD_real += criterion_c(output_c, label_class)
+            loss_C = criterion_c(output_c, label_class)
+            errD_real += loss_C
 
         if args.Wasserstein:
-            errD_real += torch.mean(output_rf)
+            errD_real -= torch.mean(output_rf)
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
             errD_real += criterion_rf(output_rf, label_rf)
@@ -193,8 +192,10 @@ for epoch in range(1, args.epochs + 1):
             output_rf = utils.parallel_forward(netD, fake.detach(), ngpu)
 
         errD_fake = 0
-        if args.ac_gan:
-            errD_fake += criterion_c(output_c, label_class)
+        # Should we use this ?
+        # if args.ac_gan:
+        #     errD_fake += criterion_c(output_c, label_class)
+        #     loss_C += criterion_c(output_c, label_class)
 
         if args.Wasserstein:
             errD_fake += torch.mean(output_rf)
@@ -207,7 +208,7 @@ for epoch in range(1, args.epochs + 1):
         # Step
 
         if args.Wasserstein:
-            errD = - errD_real + errD_fake
+            errD = errD_real + errD_fake
             errD.backward()
         else:
             errD = errD_real + errD_fake
@@ -241,12 +242,12 @@ for epoch in range(1, args.epochs + 1):
             D_G_z2 = output_rf.data.mean()
             optimizerG.step()
             if args.clamp:
-                for p in netD.parameters():
-                    p.data.clamp_(-args.c, args.c)
+                netD.clamp(args.c, args.clamping_method)
+
             if args.ac_gan:
                 print('[%d/%d][%d/%d] Loss_D: %.4f Loss_C: %.4f Loss_G: %.2f D(x): %.2f D(G(z)): %.4f / %.4f'
                       % (epoch, args.epochs, i, len(trainloader),
-                         errD_real.data[0], errD.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
+                         errD_real.data[0], loss_C.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
             else:
                 print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
                       % (epoch, args.epochs, i, len(trainloader),
@@ -257,10 +258,6 @@ for epoch in range(1, args.epochs + 1):
             fake = netG(fixed_latent)
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
-                    , nrow=10)
-            fake = netG(fixed_latent_2)
-            vutils.save_image(fake.data,
-                    '%s/%s_fake_samples_epoch_c0_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
 
     # do checkpointing

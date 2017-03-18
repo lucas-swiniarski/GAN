@@ -77,10 +77,10 @@ print(netG)
 ###
 
 print('Create Validation set with generated data ...')
-validloader_gen = utils.generate_dataset(netG, 1000, args.batchSize, args.workers, args.nz, args.cuda, n_class)
+validloader_gen = utils.generate_dataset(netG, 10000, args.batchSize, args.workers, args.nz, n_class)
 
 if args.training_size != -1:
-    trainloader_gen = utils.generate_dataset(netG, args.training_size, args.batchSize, args.workers, args.nz, args.cuda, n_class)
+    trainloader_gen = utils.generate_dataset(netG, args.training_size, args.batchSize, args.workers, args.nz, n_class)
 
 if args.cuda:
     netG.cuda()
