@@ -231,7 +231,8 @@ for epoch in range(1, args.epochs + 1):
 
             errG = 0
             if args.ac_gan:
-                errG += criterion_c(output_c, label_class)
+                loss_C_G = criterion_c(output_c, label_class)
+                errG += loss_C_G
             if args.Wasserstein:
                 errG += - torch.mean(output_rf)
             else:
@@ -245,9 +246,9 @@ for epoch in range(1, args.epochs + 1):
                 netD.clamp(args.c, args.clamping_method)
 
             if args.ac_gan:
-                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_C: %.4f Loss_G: %.2f D(x): %.2f D(G(z)): %.4f / %.4f'
+                print('[%d/%d][%d/%d] Loss_D: %.4f Loss_C: %.4f Loss_G : %.4f Loss_G_C : %.2f D(x): %.4f D(G(z)): %.4f / %.4f'
                       % (epoch, args.epochs, i, len(trainloader),
-                         errD_real.data[0], loss_C.data[0], errG.data[0], D_x, D_G_z1, D_G_z2))
+                         errD_real.data[0] - loss_C.data[0], loss_C.data[0], errG.data[0] - loss_C_G.data[0], loss_C_G.data[0],D_x, D_G_z1, D_G_z2))
             else:
                 print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
                       % (epoch, args.epochs, i, len(trainloader),

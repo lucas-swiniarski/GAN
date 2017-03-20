@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --time=6:00:00
 #SBATCH --mem=10GB
-#SBATCH --job-name=dcgan
+#SBATCH --job-name=acwg-clamp-b
 #SBATCH --mail-type=END
 #SBATCH --mail-user=ls4411@nyu.edu
 #SBATCH --output=dcgan_\%j.out
@@ -18,12 +18,12 @@ module load torchvision/0.1.7
 
 cd /scratch/ls4411/Research/GAN/QualityAssessor
 
-DIR_NAME="ac-w-gan-max_normalize_c01"
+DIR_NAME="ac-w-gan-normalize-v2"
 FILE_NAME="ac-w-gan-normalize"
 
 mkdir ../TrainedNetworks/$DIR_NAME
 
-python main.py --c=0.01 --epochs=100 --Wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=max_normalize &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
+python main.py --c=0.01 --epochs=100 --Wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=normalize &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
 
 exit 0
 
