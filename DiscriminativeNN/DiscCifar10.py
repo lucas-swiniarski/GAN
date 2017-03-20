@@ -31,19 +31,19 @@ class _netD(nn.Module):
             self.conv2.weight.data.clamp_(-c, c)
             self.conv3.weight.data.clamp_(-c, c)
             self.conv4.weight.data.clamp_(-c, c)
-            self.conv5.weight.data[0].clamp_(-c, c)
+            self.conv5.weight.data[:,0].clamp_(-c, c)
         elif clamping_method == 'max_normalize':
             self.conv1.weight.data.div_(self.conv1.weight.data.abs().max()).mul_(c)
             self.conv2.weight.data.div_(self.conv2.weight.data.abs().max()).mul_(c)
             self.conv3.weight.data.div_(self.conv3.weight.data.abs().max()).mul_(c)
             self.conv4.weight.data.div_(self.conv4.weight.data.abs().max()).mul_(c)
-            self.conv5.weight.data[0].div_(self.conv5.weight.data[0].abs().max()).mul_(c)
+            self.conv5.weight.data[:,0].div_(self.conv5.weight.data[:,0].abs().max()).mul_(c)
         elif clamping_method == 'normalize':
             self.conv1.weight.data.add_(-self.conv1.weight.data.mean()).div_(self.conv1.weight.data.std()).mul_(c)
             self.conv2.weight.data.add_(-self.conv2.weight.data.mean()).div_(self.conv2.weight.data.std()).mul_(c)
             self.conv3.weight.data.add_(-self.conv3.weight.data.mean()).div_(self.conv3.weight.data.std()).mul_(c)
             self.conv4.weight.data.add_(-self.conv4.weight.data.mean()).div_(self.conv4.weight.data.std()).mul_(c)
-            self.conv5.weight.data[0].add_(-self.conv5.weight.data[0].mean()).div_(self.conv5.weight.data[0].std()).mul_(c)
+            self.conv5.weight.data[:,0].add_(-self.conv5.weight.data[:,0].mean()).div_(self.conv5.weight.data[:,0].std()).mul_(c)
 
     def forward(self, input):
         input = self.conv1(input)

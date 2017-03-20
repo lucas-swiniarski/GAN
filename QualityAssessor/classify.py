@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, default='cifar10',help='cifar10 | lsun | imagenet | folder | lfw ')
 parser.add_argument('--dataroot', default='../data', type=str, help='path to dataset')
 parser.add_argument('--ngf', type=int, default=64)
-parser.add_argument('--epochs', type=int, default=25, help='number of epochs to train for')
+parser.add_argument('--epochs', type=int, default=100, help='number of epochs to train for')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--imageSize', required=True, type=int, default=32, help='the height / width of the input image to network')
@@ -35,6 +35,7 @@ parser.add_argument('--ngpu'  , type=int, default=1, help='number of GPUs to use
 parser.add_argument('--netG', required=True,default='', help="path to netG (to create images)")
 parser.add_argument('--name', default='dcgan', help='Name of the saved modle')
 parser.add_argument('--training-size', type=int, default=-1, help='How many generated samples we train on, -1 = Infinity')
+parser.add_argument('--train-real', type=bool, default=False, help='Train classifier on real data or not, useful for knowing the accuracy of classifier')
 parser.add_argument('--log-interval', type=int, default=100, help='Number of batchs between prints')
 
 args = parser.parse_args()
@@ -64,9 +65,9 @@ print(args)
 
 model = classifier.Net()
 
-trainloader_data, validloader_data, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers)
+trainloader_real, validloader_real, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers)
 
-assert trainloader_data, validloader_data
+assert trainloader_real, validloader_real
 
 netG = generator._netG(args.nz + n_class, args.ngf, nc)
 netG.load_state_dict(torch.load(args.netG))
@@ -76,8 +77,9 @@ print(netG)
 # Create Generative validation set and Generative training set if necessary.
 ###
 
-print('Create Validation set with generated data ...')
-validloader_gen = utils.generate_dataset(netG, 10000, args.batchSize, args.workers, args.nz, n_class)
+# If we need one day a validation set on generated data.
+# print('Create Validation set with generated data ...')
+# validloader_gen = utils.generate_dataset(netG, 10000, args.batchSize, args.workers, args.nz, n_class)
 
 if args.training_size != -1:
     trainloader_gen = utils.generate_dataset(netG, args.training_size, args.batchSize, args.workers, args.nz, n_class)
@@ -98,7 +100,7 @@ def train(epoch, train_loader=None):
             data, target = Variable(data), Variable(target)
             optimizer.zero_grad()
             output = model(data)
-            loss = F.nll_loss(output, target)
+            loss = criterion(output, target)
             loss.backward()
             optimizer.step()
             if batch_idx % args.log_interval == 0:
@@ -115,7 +117,7 @@ def train(epoch, train_loader=None):
         latent = Variable(latent)
         target = Variable(target)
 
-        for batch_idx in range(len(trainloader_data)):
+        for batch_idx in range(len(trainloader_real)):
             labels = torch.FloatTensor(args.batchSize).random_(0, 9)
             target.data.copy_(labels)
             latent.data.copy_(utils.generate_latent_tensor(args.batchSize, args.nz, n_class, labels.long()))
@@ -129,8 +131,8 @@ def train(epoch, train_loader=None):
             optimizer.step()
             if batch_idx % args.log_interval == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(trainloader_data.dataset),
-                    100. * batch_idx / len(trainloader_data), loss.data[0]))
+                    epoch, batch_idx * len(data), len(trainloader_real.dataset),
+                    100. * batch_idx / len(trainloader_real), loss.data[0]))
 
 def test(epoch, valid_loader, dataset_name):
     model.eval()
@@ -141,7 +143,7 @@ def test(epoch, valid_loader, dataset_name):
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
-        test_loss += F.nll_loss(output, target).data[0]
+        test_loss += criterion(output, target).data[0]
         pred = output.data.max(1)[1] # get the index of the max log-probability
         correct += pred.eq(target.data).cpu().sum()
 
@@ -152,9 +154,11 @@ def test(epoch, valid_loader, dataset_name):
         100. * correct / len(valid_loader.dataset)))
 
 for epoch in range(1, args.epochs + 1):
-    if args.training_size == -1:
+    if args.train_real:
+        train(epoch, trainloader_real)
+    elif args.training_size == -1:
         train(epoch)
     else:
         train(epoch, trainloader_gen)
-    test(epoch, validloader_gen, 'Generative Validation set')
-    test(epoch, validloader_data, 'Test set')
+    # test(epoch, validloader_gen, 'Generative Validation set')
+    test(epoch, validloader_real, 'Test set')

@@ -10,7 +10,7 @@
 #SBATCH --job-name=dcgan
 #SBATCH --mail-type=END
 #SBATCH --mail-user=ls4411@nyu.edu
-#SBATCH --output=ac-w-gan_\%j.out
+#SBATCH --output=dcgan_\%j.out
 
 module purge
 module load pytorch/intel/20170226
@@ -18,7 +18,12 @@ module load torchvision/0.1.7
 
 cd /scratch/ls4411/Research/GAN/QualityAssessor
 
-python main.py --epochs=50 --Wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=ac-w-gan &> /scratch/ls4411/Research/job-output/w-ac-gan-mnist.txt
+DIR_NAME="ac-w-gan-max_normalize_c01"
+FILE_NAME="ac-w-gan-normalize"
+
+mkdir ../TrainedNetworks/$DIR_NAME
+
+python main.py --c=0.01 --epochs=100 --Wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=max_normalize &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
 
 exit 0
 
