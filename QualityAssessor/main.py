@@ -154,7 +154,7 @@ for epoch in range(1, args.epochs + 1):
         ###########################
 
         # train with real
-
+        netD.train()
         netD.zero_grad()
         batch_size = data.size(0)
         input.data.resize_(data.size()).copy_(data)
@@ -222,6 +222,7 @@ for epoch in range(1, args.epochs + 1):
         ###########################
 
         if critic_trained_times == args.n_critic:
+            netD.eval()
             critic_trained_times = 0
             netG.zero_grad()
 

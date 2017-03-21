@@ -3,12 +3,13 @@ import torch
 import torch.nn.functional as F
 
 class _netD(nn.Module):
-    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class, bias):
+    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class, bias, dropout):
         super(_netD, self).__init__()
         self.wasserstein = wasserstein
         self.ac_gan = ac_gan
         self.n_class = n_class
         self.fc_hidden_size = 250
+        self.dropout = dropout
 
         self.conv1 = nn.Conv2d(nc, ndf, 4, 2, 1, bias=bias)
 
@@ -26,6 +27,8 @@ class _netD(nn.Module):
             self.fc1 = nn.Linear(self.fc_hidden_size, self.n_class)
         else:
             self.conv5 = nn.Conv2d(ndf * 8, 1, 3, bias=bias)
+        if self.dropout:
+            self.drop = nn.Dropout2d(inplace=True)
 
     def clamp(self, c, clamping_method):
         if clamping_method == 'clamp':
@@ -70,15 +73,23 @@ class _netD(nn.Module):
 
     def forward(self, input):
         input = self.conv1(input)
+        if self.dropout:
+            self.drop(input)
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn2(self.conv2(input))
+        if self.dropout:
+            self.drop(input)
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn3(self.conv3(input))
+        if self.dropout:
+            self.drop(input)
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.bn4(self.conv4(input))
+        if self.dropout:
+            self.drop(input)
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
         input = self.conv5(input)

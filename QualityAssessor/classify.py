@@ -53,6 +53,8 @@ sys.path.append("../ClassifierNN")
 sys.path.append("../GenerativeNN")
 
 if args.dataset == 'cifar10':
+    import ClassifierCifar10 as classifier
+    import GenCifar10 as generator
     print('No Classifier implemented yet ...')
     nc = 3
 elif args.dataset == 'mnist':
@@ -69,9 +71,12 @@ trainloader_real, validloader_real, n_class = utils.load_dataset(args.dataset, a
 
 assert trainloader_real, validloader_real
 
-netG = generator._netG(args.nz + n_class, args.ngf, nc)
-netG.load_state_dict(torch.load(args.netG))
-print(netG)
+if not args.train_real:
+    netG = generator._netG(args.nz + n_class, args.ngf, nc)
+    netG.load_state_dict(torch.load(args.netG))
+    print(netG)
+    if args.cuda:
+        netG.cuda()
 
 ###
 # Create Generative validation set and Generative training set if necessary.
@@ -85,7 +90,6 @@ if args.training_size != -1:
     trainloader_gen = utils.generate_dataset(netG, args.training_size, args.batchSize, args.workers, args.nz, n_class)
 
 if args.cuda:
-    netG.cuda()
     model.cuda()
 
 optimizer = optim.Adam(model.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
