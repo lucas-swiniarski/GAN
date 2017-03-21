@@ -39,6 +39,7 @@ parser.add_argument('--clamp', type=bool, default=False, help='Do we clamp ? - W
 parser.add_argument('--c', type=float, default=0.01, help='Clamping parameter of the W-Gan')
 parser.add_argument('--n-critic', type=int, required=True, help='Times training the discriminator vs generator')
 parser.add_argument('--bias', type=bool, default=False, help='Bias term on convolutions on discriminator')
+parser.add_argument('--dropout', type=bool, default=False, help='Dropouts on discriminator')
 parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp | normalize | max_normalize')
 
 args = parser.parse_args()
@@ -95,7 +96,7 @@ if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
-netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class, args.bias)
+netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class, args.bias, args.dropout)
 netD.apply(utils.weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
