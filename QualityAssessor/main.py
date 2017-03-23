@@ -34,7 +34,7 @@ parser.add_argument('--netG', default='', help="path to netG (to continue traini
 parser.add_argument('--netD', default='', help="path to netD (to continue training)")
 parser.add_argument('--outf', default='../TrainedNetworks', help='folder to output images and model checkpoints')
 parser.add_argument('--name', default='dcgan', help='Name of the saved modle')
-parser.add_argument('--Wasserstein', type=bool, default=False, help='Training a Wasserstein Gan or a DC-GAN')
+parser.add_argument('--wasserstein', type=bool, default=False, help='Training a Wasserstein Gan or a DC-GAN')
 parser.add_argument('--clamp', type=bool, default=False, help='Do we clamp ? - Wasserstein Gan Discriminator')
 parser.add_argument('--c', type=float, default=0.01, help='Clamping parameter of the W-Gan')
 parser.add_argument('--n-critic', type=int, required=True, help='Times training the discriminator vs generator')
@@ -96,7 +96,7 @@ if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
-netD = ModelD._netD(ndf, nc, args.Wasserstein, args.ac_gan, n_class, args.bias, args.dropout)
+netD = ModelD._netD(ndf, nc, args.wasserstein, args.ac_gan, n_class, args.bias, args.dropout)
 netD.apply(utils.weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
@@ -130,7 +130,7 @@ latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
 label_class = Variable(label_class)
 
-if args.Wasserstein:
+if args.wasserstein:
     optimizerD = optim.RMSprop(netD.parameters(), lr = args.lr)
     optimizerG = optim.RMSprop(netG.parameters(), lr = args.lr)
 else:
@@ -170,7 +170,7 @@ for epoch in range(1, args.epochs + 1):
             loss_C = criterion_c(output_c, label_class)
             errD_real += loss_C
 
-        if args.Wasserstein:
+        if args.wasserstein:
             errD_real -= torch.mean(output_rf)
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
@@ -198,7 +198,7 @@ for epoch in range(1, args.epochs + 1):
         #     errD_fake += criterion_c(output_c, label_class)
         #     loss_C += criterion_c(output_c, label_class)
 
-        if args.Wasserstein:
+        if args.wasserstein:
             errD_fake += torch.mean(output_rf)
         else:
             label_rf.data.fill_(fake_label)
@@ -208,7 +208,7 @@ for epoch in range(1, args.epochs + 1):
 
         # Step
 
-        if args.Wasserstein:
+        if args.wasserstein:
             errD = errD_real + errD_fake
             errD.backward()
         else:
@@ -235,7 +235,7 @@ for epoch in range(1, args.epochs + 1):
             if args.ac_gan:
                 loss_C_G = criterion_c(output_c, label_class)
                 errG += loss_C_G
-            if args.Wasserstein:
+            if args.wasserstein:
                 errG += - torch.mean(output_rf)
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
