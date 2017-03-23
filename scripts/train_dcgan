@@ -23,7 +23,7 @@ FILE_NAME="ac-w-gan-clamp"
 
 mkdir ../TrainedNetworks/$DIR_NAME
 
-python main.py --dropout=True --bias=True --c=0.01 --epochs=200 --Wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=clamp &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
+python main.py --dropout=True --bias=True --c=0.01 --epochs=200 --wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=clamp &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
 
 exit 0
 
