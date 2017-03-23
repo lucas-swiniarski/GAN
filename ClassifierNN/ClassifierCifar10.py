@@ -30,7 +30,7 @@ class Net(nn.Module):
         # 256 x 7 x 7
         self.bn6 = nn.BatchNorm2d(256)
         self.drop6 = nn.Dropout2d(p=0.4)
-        self.conv7 = nn.Conv2d(256, 256, 3)
+        self.conv7 = nn.Conv2d(256, 256, 2)
         # 256 x 6 x 6
         self.bn7 = nn.BatchNorm2d(256)
         self.drop7 = nn.Dropout2d(p=0.4)
@@ -47,12 +47,12 @@ class Net(nn.Module):
 
     def forward(self, x):
         x = self.drop1(F.relu(self.bn1(self.conv1(x))))
-        x = F.max_pool2dF.relu((self.bn2(self.conv2(x)), (2,2)))
+        x = F.max_pool2d(F.relu(self.bn2(self.conv2(x))), (2,2))
         x = self.drop3(F.relu(self.bn3(self.conv3(x))))
-        x = F.max_pool2d(self.drop4(F.relu(self.bn4(self.conv4(x))), (2,2)))
+        x = F.max_pool2d(self.drop4(F.relu(self.bn4(self.conv4(x)))), (2,2))
         x = self.drop5(F.relu(self.bn5(self.conv5(x))))
         x = self.drop6(F.relu(self.bn6(self.conv6(x))))
-        x = F.max_pool2d(self.drop7(F.relu(self.bn7(self.conv7(x))), (2,2)))
+        x = F.max_pool2d(self.drop7(F.relu(self.bn7(self.conv7(x)))), (2,2))
         x = self.drop8(F.relu(self.bn8(self.conv8(x))))
         x = x.view(-1, 512)
         x = self.drop9(F.relu(self.bn9(self.fc9(x))))
