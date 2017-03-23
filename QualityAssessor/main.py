@@ -41,7 +41,7 @@ parser.add_argument('--n-critic', type=int, required=True, help='Times training 
 parser.add_argument('--bias', type=bool, default=False, help='Bias term on convolutions on discriminator')
 parser.add_argument('--dropout', type=bool, default=False, help='Dropouts on discriminator')
 parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp | normalize | max_normalize')
-
+parser.add_argument('--noise', type=bool, default=False, help='Add gaussian noise to real data')
 args = parser.parse_args()
 
 args.manualSeed = random.randint(1, 10000) # fix seed
@@ -157,7 +157,11 @@ for epoch in range(1, args.epochs + 1):
         netD.train()
         netD.zero_grad()
         batch_size = data.size(0)
-        input.data.resize_(data.size()).copy_(data)
+        if args.noise:
+            eps = torch.FloatTensor(data.size()).normal_(0, 1.0 / 256)
+            input.data.resize_(data.size()).copy_(data.add(eps))
+        else:
+            input.data.resize_(data.size()).copy_(data)
         label_class.data.resize_(batch_size).copy_(target)
 
         if args.ac_gan:
