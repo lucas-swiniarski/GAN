@@ -10,6 +10,7 @@ class _netD(nn.Module):
         self.n_class = n_class
         self.fc_hidden_size = 250
         self.dropout = dropout
+        self.bias = bias
 
         self.conv1 = nn.Conv2d(nc, ndf, 4, 2, 1, bias=bias)
 
