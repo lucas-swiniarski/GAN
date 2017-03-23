@@ -11,7 +11,7 @@ import torchvision.datasets as dset
 # Allows networks to be efficiently trained.
 ###
 
-def load_dataset(dataset, dataroot, batchSize, imageSize, workers):
+def load_dataset(dataset, dataroot, batchSize, imageSize, workers, trainsetsize):
     if dataset == 'cifar10':
         transform = transforms.Compose([
             transforms.Scale(imageSize),
@@ -19,8 +19,13 @@ def load_dataset(dataset, dataroot, batchSize, imageSize, workers):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
-        trainset = dset.CIFAR10(root=dataroot, train=True, download=True, transform=transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(workers))
+        if trainsetsize == -1:
+            trainset = dset.CIFAR10(root=dataroot, train=True, download=True, transform=transform)
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(workers))
+        else:
+            trainset = dset.CIFAR10(root=dataroot, train=True, download=True, transform=transform)
+            tensordataset = torch.utils.data.TensorDataset(trainset.train_data[:trainsetsize], trainset.train_labels[:trainsetsize])
+            trainloader = torch.utils.data.DataLoader(tensordataset, batch_size=batchSize, shuffle=True, num_workers=int(workers))
 
         testset = dset.CIFAR10(root=dataroot, train=False, download=True, transform=transform)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batchSize, shuffle=False, num_workers=int(workers))

@@ -67,7 +67,7 @@ print(args)
 
 model = classifier.Net()
 
-trainloader_real, validloader_real, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers)
+trainloader_real, validloader_real, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers, -1)
 
 assert trainloader_real, validloader_real
 

@@ -42,6 +42,7 @@ parser.add_argument('--bias', type=bool, default=False, help='Bias term on convo
 parser.add_argument('--dropout', type=bool, default=False, help='Dropouts on discriminator')
 parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp | normalize | max_normalize')
 parser.add_argument('--noise', type=bool, default=False, help='Add gaussian noise to real data')
+parser.add_argument('--training-size', type=int, default=-1, help='How many examples of real data do we use, (default:-1 = Infinity)')
 args = parser.parse_args()
 
 args.manualSeed = random.randint(1, 10000) # fix seed
@@ -74,7 +75,7 @@ print(args)
 # Import data-sets.
 ###
 
-trainloader, testloader, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers)
+trainloader, testloader, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, args.imageSize, args.workers, args.training_size)
 
 assert trainloader, testloader
 
