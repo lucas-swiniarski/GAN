@@ -44,6 +44,13 @@ class _netD(nn.Module):
             self.bn4.weight.data.clamp_(-c, c)
 
             self.conv5.weight.data[0].clamp_(-c, c)
+
+            if self.bias:
+                self.conv1.bias.data.clamp_(-c,c)
+                self.conv2.bias.data.clamp_(-c,c)
+                self.conv3.bias.data.clamp_(-c,c)
+                self.conv4.bias.data.clamp_(-c,c)
+                self.conv5.bias[0].data.clamp_(-c,c)
         elif clamping_method == 'max_normalize':
             self.conv1.weight.data.div_(self.conv1.weight.data.abs().max()).mul_(c)
 
@@ -57,6 +64,13 @@ class _netD(nn.Module):
             self.bn4.weight.data.div_(self.bn4.weight.data.abs().max()).mul_(c)
 
             self.conv5.weight.data[0].div_(self.conv5.weight.data[0].abs().max()).mul_(c)
+
+            if self.bias:
+                self.conv1.bias.data.div_(self.conv1.bias.data.abs().max()).mul_(c)
+                self.conv2.bias.data.div_(self.conv2.bias.data.abs().max()).mul_(c)
+                self.conv3.bias.data.div_(self.conv3.bias.data.abs().max()).mul_(c)
+                self.conv4.bias.data.div_(self.conv4.bias.data.abs().max()).mul_(c)
+                self.conv5.bias[0].data.clamp_(-c,c)
         elif clamping_method == 'normalize':
             self.conv1.weight.data.add_(-self.conv1.weight.data.mean()).div_(self.conv1.weight.data.std()).mul_(c)
 
@@ -70,6 +84,13 @@ class _netD(nn.Module):
             self.bn4.weight.data.add_(-self.bn4.weight.data.mean()).div_(self.bn4.weight.data.std()).mul_(c)
 
             self.conv5.weight.data[0].add_(-self.conv5.weight.data[0].mean()).div_(self.conv5.weight.data[0].std()).mul_(c)
+
+            if self.bias:
+                self.conv1.bias.data.add_(-self.conv1.bias.data.mean()).div_(self.conv1.bias.data.std()).mul_(c)
+                self.conv2.bias.data.add_(-self.conv2.bias.data.mean()).div_(self.conv2.bias.data.std()).mul_(c)
+                self.conv3.bias.data.add_(-self.conv3.bias.data.mean()).div_(self.conv3.bias.data.std()).mul_(c)
+                self.conv4.bias.data.add_(-self.conv4.bias.data.mean()).div_(self.conv4.bias.data.std()).mul_(c)
+                self.conv5.bias[0].data.clamp_(-c, c)
 
     def forward(self, input):
         input = self.conv1(input)
