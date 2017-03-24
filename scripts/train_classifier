@@ -18,10 +18,10 @@ module load torchvision/0.1.7
 
 cd /scratch/ls4411/Research/GAN/QualityAssessor
 
-DIR_NAME="/ac-w-gan-max_normalize_c01"
-FILE_NAME="ac-w-gan-normalize_netG_epoch_47.pth"
+DIR_NAME="cifar10"
+FILE_NAME="all-dataset"
 
-python classify.py --dataset=mnist --imageSize=28 --cuda --netG=../TrainedNetworks/$DIR_NAME/$FILE_NAME &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-classify-output.txt
+python classify.py --epochs=200 --train-real=True --dataset=cifar10 --imageSize=32 --cuda --netG=../TrainedNetworks/$DIR_NAME/$FILE_NAME &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-classify-output.txt
 
 exit 0
 

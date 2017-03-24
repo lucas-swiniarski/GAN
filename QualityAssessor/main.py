@@ -43,6 +43,8 @@ parser.add_argument('--dropout', type=bool, default=False, help='Dropouts on dis
 parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp | normalize | max_normalize')
 parser.add_argument('--noise', type=bool, default=False, help='Add gaussian noise to real data')
 parser.add_argument('--training-size', type=int, default=-1, help='How many examples of real data do we use, (default:-1 = Infinity)')
+parser.add_argument('--noeval', type=bool, default=False, help='Do we train the Generator on Eval mode')
+
 args = parser.parse_args()
 
 args.manualSeed = random.randint(1, 10000) # fix seed
@@ -227,7 +229,10 @@ for epoch in range(1, args.epochs + 1):
         ###########################
 
         if critic_trained_times == args.n_critic:
-            netD.eval()
+            if args.noeval:
+                netD.train()
+            else:
+                netD.eval()
             critic_trained_times = 0
             netG.zero_grad()
 
