@@ -20,26 +20,18 @@ class _netG(nn.Module):
         self.convt5 = nn.ConvTranspose2d(ngf, nc, 4, 2, 1, bias=False)
 
     def forward(self, input):
-        print('Forward ...')
-        print(input.size())
         input = self.bn1(self.convt1(input))
-        print(input.size())
         F.relu(input, inplace=True)
 
         input = self.bn2(self.convt2(input))
-        print(input.size())
         F.relu(input, inplace=True)
 
         input = self.bn3(self.convt3(input))
-        print(input.size())
         F.relu(input, inplace=True)
 
         input = self.bn4(self.convt4(input))
-        print(input.size())
         F.relu(input, inplace=True)
 
         input = self.convt5(input)
-        print(input.size())
-        print('Stop ...')
         input = F.tanh(input)
         return input
