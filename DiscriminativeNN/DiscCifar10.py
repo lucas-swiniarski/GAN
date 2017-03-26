@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 class _netD(nn.Module):
-    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class, bias, dropout):
+    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class, bias, dropout, bn_momentum):
         super(_netD, self).__init__()
         self.wasserstein = wasserstein
         self.ac_gan = ac_gan
@@ -15,13 +15,13 @@ class _netD(nn.Module):
         self.conv1 = nn.Conv2d(nc, ndf, 4, 2, 1, bias=bias)
 
         self.conv2 = nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=bias)
-        self.bn2 = nn.BatchNorm2d(ndf * 2)
+        self.bn2 = nn.BatchNorm2d(ndf * 2, momentum=bn_momentum)
 
         self.conv3 = nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=bias)
-        self.bn3 = nn.BatchNorm2d(ndf * 4)
+        self.bn3 = nn.BatchNorm2d(ndf * 4, momentum=bn_momentum)
 
         self.conv4 = nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=bias)
-        self.bn4 = nn.BatchNorm2d(ndf * 8)
+        self.bn4 = nn.BatchNorm2d(ndf * 8, momentum=bn_momentum)
 
         if ac_gan:
             self.conv5 = nn.Conv2d(ndf * 8, 1 + self.fc_hidden_size, 2, 1, 0, bias=bias)

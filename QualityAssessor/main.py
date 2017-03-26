@@ -44,7 +44,9 @@ parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp |
 parser.add_argument('--noise', type=bool, default=False, help='Add gaussian noise to real data')
 parser.add_argument('--training-size', type=int, default=-1, help='How many examples of real data do we use, (default:-1 = Infinity)')
 parser.add_argument('--noeval', type=bool, default=False, help='Do we train the Generator on Eval mode')
-
+parser.add_argument('--bng-momentum', type=float, default=0.1, help='Momentum of BatchNorm Generator')
+parser.add_argument('--bnd-momentum', type=float, default=0.1, help='Momentum of BatchNorm Discriminator')
+parser.add_argument('--model-g', type=str, default='base', help='Generator model : base | upsampling | residual')
 args = parser.parse_args()
 
 args.manualSeed = random.randint(1, 10000) # fix seed
@@ -66,7 +68,12 @@ if args.dataset == 'cifar10':
     if args.imageSize != 32:
         print('Model do not work with this image size !')
 elif args.dataset == 'mnist':
-    import GenMnist as ModelG
+    if args.model_g == 'base':
+        import GenMnist as ModelG
+    elif args.model_g == 'upsampling':
+        import GenMnistUpsampling as ModelG
+    elif args.model_g == 'residual':
+        import GenMnistResidual as ModelG
     import DiscMnist as ModelD
     nc = 1
     if args.imageSize != 28:
@@ -93,13 +100,13 @@ if args.ac_gan:
 ngf = int(args.ngf)
 ndf = int(args.ndf)
 
-netG = ModelG._netG(n_input, ngf, nc)
+netG = ModelG._netG(n_input, ngf, nc, args.bng_momentum)
 netG.apply(utils.weights_init)
 if args.netG != '':
     netG.load_state_dict(torch.load(args.netG))
 print(netG)
 
-netD = ModelD._netD(ndf, nc, args.wasserstein, args.ac_gan, n_class, args.bias, args.dropout)
+netD = ModelD._netD(ndf, nc, args.wasserstein, args.ac_gan, n_class, args.bias, args.dropout, args.bnd_momentum)
 netD.apply(utils.weights_init)
 if args.netD != '':
     netD.load_state_dict(torch.load(args.netD))
