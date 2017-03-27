@@ -43,7 +43,7 @@ parser.add_argument('--dropout', type=bool, default=False, help='Dropouts on dis
 parser.add_argument('--clamping-method', type=str, default='clamp',help='clamp | normalize | max_normalize')
 parser.add_argument('--noise', type=bool, default=False, help='Add gaussian noise to real data')
 parser.add_argument('--training-size', type=int, default=-1, help='How many examples of real data do we use, (default:-1 = Infinity)')
-parser.add_argument('--noeval', type=bool, default=False, help='Do we train the Generator on Eval mode')
+parser.add_argument('--eval', type=bool, default=False, help='Do we train the Generator on Eval mode')
 parser.add_argument('--bng-momentum', type=float, default=0.1, help='Momentum of BatchNorm Generator')
 parser.add_argument('--bnd-momentum', type=float, default=0.1, help='Momentum of BatchNorm Discriminator')
 parser.add_argument('--model-g', type=str, default='base', help='Generator model : base | upsampling | residual')
@@ -241,10 +241,10 @@ for epoch in range(1, args.epochs + 1):
         ###########################
 
         if critic_trained_times == args.n_critic:
-            if args.noeval:
-                netD.train()
-            else:
+            if args.eval:
                 netD.eval()
+            else:
+                netD.train()
             critic_trained_times = 0
             netG.zero_grad()
 
