@@ -37,7 +37,8 @@ parser.add_argument('--name', default='dcgan', help='Name of the saved modle')
 parser.add_argument('--training-size', type=int, default=-1, help='How many generated samples we train on, -1 = Infinity')
 parser.add_argument('--train-real', type=bool, default=False, help='Train classifier on real data or not, useful for knowing the accuracy of classifier')
 parser.add_argument('--log-interval', type=int, default=100, help='Number of batchs between prints')
-
+parser.add_argument('--bng-momentum', type=float, default=0.1, help='Momentum of BatchNorm Generator')
+parser.add_argument('--model-g', type=str, default='base', help='Generator model : base | upsampling | residual')
 args = parser.parse_args()
 
 args.manualSeed = random.randint(1, 10000) # fix seed
@@ -54,12 +55,17 @@ sys.path.append("../GenerativeNN")
 
 if args.dataset == 'cifar10':
     import ClassifierCifar10 as classifier
-    import GenCifar10 as generator
+    import GenCifar10 as ModelG
     print('No Classifier implemented yet ...')
     nc = 3
 elif args.dataset == 'mnist':
     import ClassifierMNIST as classifier
-    import GenMnist as generator
+    if args.model_g == 'base':
+        import GenMnist as ModelG
+    elif args.model_g == 'upsampling':
+        import GenMnistUpsampling as ModelG
+    elif args.model_g == 'residual':
+        import GenMnistResidual as ModelG
     nc = 1
     if args.imageSize != 28:
         print('Model do not work with this image size !')
@@ -72,7 +78,7 @@ trainloader_real, validloader_real, n_class = utils.load_dataset(args.dataset, a
 assert trainloader_real, validloader_real
 
 if not args.train_real:
-    netG = generator._netG(args.nz + n_class, args.ngf, nc)
+    netG = ModelG._netG(args.nz + n_class, args.ngf, nc, args.bng_momentum)
     netG.load_state_dict(torch.load(args.netG))
     print(netG)
     if args.cuda:
