@@ -62,7 +62,12 @@ sys.path.append("../DiscriminativeNN")
 sys.path.append("../GenerativeNN")
 
 if args.dataset == 'cifar10':
-    import GenCifar10 as ModelG
+    if args.model_g == 'base':
+        import GenCifar10 as ModelG
+    elif args.model_g == 'upsampling':
+        import GenCifar10Upsampling as ModelG
+    elif args.model_g == 'residual':
+        import GenCifar10Residual as ModelG
     import DiscCifar10 as ModelD
     nc = 3
     if args.imageSize != 32:
