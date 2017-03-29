@@ -68,7 +68,7 @@ if args.dataset == 'cifar10':
         import GenCifar10Upsampling as ModelG
     elif args.model_g == 'residual':
         import GenCifar10Residual as ModelG
-    import DiscCifar10 as ModelD
+    import DiscCifar10v2 as ModelD
     nc = 3
     if args.imageSize != 32:
         print('Model do not work with this image size !')
