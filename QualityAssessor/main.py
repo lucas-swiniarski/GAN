@@ -195,7 +195,7 @@ for epoch in range(1, args.epochs + 1):
             label_rf.data.resize_(batch_size).fill_(real_label)
             errD_real += criterion_rf(output_rf, label_rf)
             errD_real.backward()
-        D_x = output_rf.data.mean()
+        D_x = output_rf.mean().detach()
 
         # train with fake
 
@@ -258,7 +258,7 @@ for epoch in range(1, args.epochs + 1):
                 loss_C_G = criterion_c(output_c, label_class)
                 errG += torch.pow(loss_C_G, 2)
             if args.wasserstein:
-                loss_S_G = - torch.mean(output_rf)
+                loss_S_G = D_x - torch.mean(output_rf)
                 errG += torch.pow(loss_S_G, 2) - torch.abs(loss_S_G.mul(loss_C_G))
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
@@ -273,7 +273,7 @@ for epoch in range(1, args.epochs + 1):
             if args.ac_gan:
                 print('[%d/%d][%d/%d] Loss_D: %.4f Loss_C: %.4f Loss_G : %.4f Loss_G_C : %.2f D(x): %.4f D(G(z)): %.4f / %.4f'
                       % (epoch, args.epochs, i, len(trainloader),
-                         errD_real.data[0] - loss_C.data[0], loss_C.data[0], errG.data[0] - loss_C_G.data[0], loss_C_G.data[0],D_x, D_G_z1, D_G_z2))
+                         errD_real.data[0] - loss_C.data[0], loss_C.data[0], errG.data[0] - loss_C_G.data[0], loss_C_G.data[0],D_x.data[0], D_G_z1, D_G_z2))
             else:
                 print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
                       % (epoch, args.epochs, i, len(trainloader),
