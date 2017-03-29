@@ -256,9 +256,10 @@ for epoch in range(1, args.epochs + 1):
             errG = 0
             if args.ac_gan:
                 loss_C_G = criterion_c(output_c, label_class)
-                errG += loss_C_G
+                errG += torch.pow(loss_C_G, 2)
             if args.wasserstein:
-                errG += - torch.mean(output_rf)
+                loss_S_G = - torch.mean(output_rf)
+                errG += torch.pow(loss_S_G, 2) - torch.abs(loss_S_G.mul(loss_C_G))
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
                 errG += criterion_rf(output_rf, label_rf)
