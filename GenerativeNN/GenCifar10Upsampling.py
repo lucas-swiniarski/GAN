@@ -8,19 +8,19 @@ class _netG(nn.Module):
         self.convt1 = nn.ConvTranspose2d(n_input, ngf * 8, 2, 1, 0, bias=False)
         self.bn1 = nn.BatchNorm2d(ngf * 8, momentum=bn_momentum)
 
-        self.upsample2 = nn.UpsamplingBilinear2d(size=(4,4))
+        self.upsample2 = nn.UpsamplingNearest2d(size=(4,4))
         self.conv2 = nn.Conv2d(ngf * 8, ngf * 4, 3, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(ngf * 4, momentum=bn_momentum)
 
-        self.upsample3 = nn.UpsamplingBilinear2d(size=(8,8))
+        self.upsample3 = nn.UpsamplingNearest2d(size=(8,8))
         self.conv3 = nn.Conv2d(ngf * 4, ngf * 2, 3, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(ngf * 2, momentum=bn_momentum)
 
-        self.upsample4 = nn.UpsamplingBilinear2d(size=(16,16))
+        self.upsample4 = nn.UpsamplingNearest2d(size=(16,16))
         self.conv4 = nn.Conv2d(ngf * 2, ngf, 3,  padding=1, bias=False)
         self.bn4 = nn.BatchNorm2d(ngf, momentum=bn_momentum)
 
-        self.upsample5 = nn.UpsamplingBilinear2d(size=(32,32))
+        self.upsample5 = nn.UpsamplingNearest2d(size=(32,32))
         self.conv5 = nn.Conv2d(ngf, nc, 3, padding=1, bias=False)
 
     def forward(self, input):
