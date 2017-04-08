@@ -12,6 +12,7 @@ class _netD(nn.Module):
         self.dropout = dropout
         self.bias = bias
         self.info_gan_latent = info_gan_latent
+        self.output_size = output_size
 
         self.conv1 = nn.Conv2d(nc, ndf, 4, 2, 1, bias=bias)
 

@@ -8,6 +8,8 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torchvision.utils as vutils
 from torch.autograd import Variable
+
+sys.path.append("..")
 import utils
 import functools
 
@@ -233,7 +235,7 @@ for epoch in range(1, args.epochs + 1):
         else:
             label_rf.data.fill_(fake_label)
             errD_fake += criterion_rf(output[0], label_rf)
-            errD_fake.backward(retain_variables=True)
+            errD_fake.backward()
         D_G_z1 = output[0].data.mean()
 
         # Step
