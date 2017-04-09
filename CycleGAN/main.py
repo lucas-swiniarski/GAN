@@ -307,7 +307,7 @@ for epoch in range(1, args.epochs + 1):
 
             # latent -> image -> latent loss
             output = utils.parallel_forward(netGLatent, fakeImage, args.ngpu)
-            circle_L = torch.mean(torch.abs(latent - output[0]))
+            circle_L = torch.mean(torch.pow(latent - output[0], 2))
 
             # netGLatent disc. loss
             output = utils.parallel_forward(netDLatent, fakeLatent, args.ngpu)
@@ -342,6 +342,9 @@ for epoch in range(1, args.epochs + 1):
             fake = netGImage(fixed_latent)
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
+                    , nrow=10)
+            vutils.save_image(netGImage(netGLatent(input)).data,
+                    '%s/%s_reconstruct_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
 
     # do checkpointing
