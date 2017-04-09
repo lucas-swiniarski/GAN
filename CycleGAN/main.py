@@ -164,6 +164,12 @@ else:
     optimizerDImage = optim.RMSprop(netDImage.parameters(), lr = args.lr)
     optimizerG = optim.RMSprop([{'params' : netGLatent.parameters()}, {'params' : netGImage.parameters()}], lr = args.lr)
 
+if args.ngpu > 1:
+    gpu_ids = range(ngpu)
+    optimizerDLatent = torch.nn.DataParallel(optimizerDLatent, device_ids=gpu_ids)
+    optimizerDImage = torch.nn.DataParallel(optimizerDImage, device_ids=gpu_ids)
+    optimizerG = torch.nn.DataParallel(optimizerG, device_ids=gpu_ids)
+
 # Keeps tracks of discriminator vs generator number of training
 critic_trained_times = 0
 
@@ -178,8 +184,8 @@ for epoch in range(1, args.epochs + 1):
 
         latent.data.resize_(batch_size, args.nz, 1, 1).copy_(utils.generate_latent_tensor(batch_size, args.nz, args.noise_unconnex, 0))
 
-        fakeImage = utils.parallel_forward(netGImage, latent, args.ngpu)
-        fakeLatent = utils.parallel_forward(netGLatent, input, args.ngpu)[0]
+        fakeImage = netGImage(latent)
+        fakeLatent = netGLatent(input)[0]
         fakeLatent.data.resize_(batch_size, args.nz, 1, 1)
 
         ############################
@@ -191,7 +197,7 @@ for epoch in range(1, args.epochs + 1):
 
         # train with real
 
-        output = utils.parallel_forward(netDImage, input, args.ngpu)
+        output = netDImage(input)
 
         errD_I_real = 0
 
@@ -206,7 +212,7 @@ for epoch in range(1, args.epochs + 1):
 
         # train with fake
 
-        output = utils.parallel_forward(netDImage, fakeImage.detach(), args.ngpu)
+        output = netDImage(fakeImage.detach())
 
         errD_I_fake = 0
 
@@ -238,7 +244,7 @@ for epoch in range(1, args.epochs + 1):
 
         # train with real
 
-        output = utils.parallel_forward(netDLatent, latent, args.ngpu)
+        output = netDLatent(latent)
 
         errD_L_real = 0
 
@@ -252,7 +258,7 @@ for epoch in range(1, args.epochs + 1):
         D_L_x = output[0].data.mean()
 
         # train with fake
-        output = utils.parallel_forward(netDLatent, fakeLatent.detach(), args.ngpu)
+        output = netDLatent(fakeLatent.detach())
 
         errD_L_fake = 0
 
@@ -295,7 +301,7 @@ for epoch in range(1, args.epochs + 1):
             netGLatent.zero_grad()
 
             # netGImage disc. loss
-            output = utils.parallel_forward(netDImage, fakeImage, args.ngpu)
+            output = netDImage(fakeImage)
 
             errG_I = 0
 
@@ -306,11 +312,11 @@ for epoch in range(1, args.epochs + 1):
                 errG_I += criterion_rf(output[0], label_rf)
 
             # latent -> image -> latent loss
-            output = utils.parallel_forward(netGLatent, fakeImage, args.ngpu)
+            output = netGLatent(fakeImage)
             circle_L = torch.mean(torch.pow(latent - output[0], 2))
 
             # netGLatent disc. loss
-            output = utils.parallel_forward(netDLatent, fakeLatent, args.ngpu)
+            output = netDLatent(fakeLatent)
 
             errG_L = 0
 
@@ -321,7 +327,7 @@ for epoch in range(1, args.epochs + 1):
                 errG_L += criterion_rf(output[0], label_rf)
 
             # image -> latent -> image loss
-            output = utils.parallel_forward(netGImage, fakeLatent, args.ngpu)
+            output = netGImage(fakeLatent)
             circle_I = torch.mean(torch.abs(input - output))
             factor = args.lbda * epoch / args.epochs
             errG = errG_I + errG_L +  (circle_L + circle_I) * factor
@@ -337,18 +343,13 @@ for epoch in range(1, args.epochs + 1):
 
 
         if i % 100 == 0:
-            vutils.save_image(data,
-                    '%s/%s_real_samples.png' % (args.outf, args.name))
+            vutils.save_image(utils.mix(input.data, netGImage(fakeLatent).data),
+                    '%s/%s_real_reconstruct_samples.png' % (args.outf, args.name))
             fake = netGImage(fixed_latent)
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
-                    , nrow=10)
-            vutils.save_image(netGImage(netGLatent(input)[0]).data,
-                    '%s/%s_reconstruct_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
 
     # do checkpointing
     torch.save(netGImage.state_dict(), '%s/%s_netGImg_epoch_%d.pth' % (args.outf, args.name, epoch))
     torch.save(netGLatent.state_dict(), '%s/%s_netGLat_epoch_%d.pth' % (args.outf, args.name, epoch))
-    # torch.save(netD.state_dict(), '%s/%s_netD_epoch_%d.pth' % (args.outf, args.name, epoch))
-    # torch.save(netD.state_dict(), '%s/%s_netD_epoch_%d.pth' % (args.outf, args.name, epoch))

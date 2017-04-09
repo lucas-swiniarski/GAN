@@ -78,16 +78,6 @@ def weights_clamp(m, c=0.01):
             m.bias.data.clamp_(-c,c)
 
 ###
-# Parallel forward if using more than one gpu.
-###
-
-def parallel_forward(model, input, ngpu):
-    gpu_ids = None
-    if isinstance(input.data, torch.cuda.FloatTensor) and ngpu > 1:
-        gpu_ids = range(ngpu)
-    return nn.parallel.data_parallel(model, input, gpu_ids)
-
-###
 # One hot encoder : Given a target vector ( batchsize x 1 ) : return matrix (batchsize x n_class )
 ###
 
@@ -149,3 +139,15 @@ def generate_dataset(netG, size, batchSize, workers, nz, n_class):
             data_tensor = torch.cat((data_tensor, output),0)
 
     return data_tensor.data, target_tensor.data
+
+###
+# Concatenate two tensors first dimension and mixing : input1 input2 -> input1[0], input2[0], input1[1]
+###
+
+def mix(input1, input2):
+    x = torch.randn(2, 3)
+    result = torch.cat((input2, input1), 0)
+    for i in range(input1.size(0)):
+        result[2 * i] = input1[i]
+        result[2 * i + 1] = input2[i]
+    return result
