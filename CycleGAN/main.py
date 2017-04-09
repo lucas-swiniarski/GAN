@@ -343,7 +343,7 @@ for epoch in range(1, args.epochs + 1):
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
-            vutils.save_image(netGImage(netGLatent(input)).data,
+            vutils.save_image(netGImage(netGLatent(input)[0]).data,
                     '%s/%s_reconstruct_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
 
