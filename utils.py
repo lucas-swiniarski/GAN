@@ -94,7 +94,8 @@ def one_hot_encoder(target, n_class):
 def generate_latent_tensor(batchSize, nz, noise_unconnex, n_class=0, target=None, info_gan_latent=0):
     if noise_unconnex:
         latent = torch.FloatTensor(batchSize, nz).normal_(0, 0.1)
-        latent.data.add_(torch.from_numpy(np.random.randint(-1, 2, (batchSize, nz))).float())
+        latent.add_(torch.from_numpy(np.random.randint(-1, 2, (batchSize, nz))).float())
+        print(latent)
     else:
         latent = torch.FloatTensor(batchSize, nz).normal_(0, 1)
 

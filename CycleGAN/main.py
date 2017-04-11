@@ -55,7 +55,7 @@ parser.add_argument('--n-critic', type=int, default=1,help='Times training the d
 parser.add_argument('--clamp', action='store_true', help='Gan Discriminator')
 parser.add_argument('--wasserstein', action='store_true', default=False, help='Training a Wasserstein Gan or a DC-GAN')
 parser.add_argument('--c', type=float, default=0.01, help='Clamping parameter of the W-Gan')
-parser.add_argument('--lbda', type=float, default=10.0, help='Cycle loss factor')
+parser.add_argument('--lbda', type=float, default=.3, help='Cycle loss factor')
 
 #TODO : Implement grad-pen when backprop of gradients enabled
 parser.add_argument('--grad-pen', action='store_true', default=False, help='Penalize Gradient')
