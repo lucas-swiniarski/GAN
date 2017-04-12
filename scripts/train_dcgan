@@ -16,7 +16,7 @@ module purge
 module load pytorch/intel/20170226
 module load torchvision/0.1.7
 
-cd /scratch/ls4411/Research/GAN/QualityAssessor
+cd /scratch/ls4411/Research/GAN/CycleGAN
 
 DIR_NAME="ac-w-gan-clamp-dropout-bias"
 FILE_NAME="ac-w-gan-clamp"
@@ -26,7 +26,7 @@ mkdir ../TrainedNetworks/$DIR_NAME
 pip install http://download.pytorch.org/whl/cu75/torch-0.1.11.post5-cp35-cp35m-linux_x86_64.whl --user
 pip install torchvision --user
 
-python main.py --dropout=True --bias=True --c=0.01 --epochs=200 --wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=clamp &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
+python main.py --epochs=200 --wasserstein=True --clamp=True --dataset=mnist --imageSize=28 --cuda --n-critic=5 --ac-gan=True --name=/$DIR_NAME/$FILE_NAME --clamping-method=clamp &> /scratch/ls4411/Research/GAN/TrainedNetworks/$DIR_NAME/$FILE_NAME-output.txt
 
 exit 0
 
