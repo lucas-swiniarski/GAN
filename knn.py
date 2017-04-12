@@ -34,11 +34,12 @@ parser.add_argument('--model-g', type=str, default='base', help='Generator model
 parser.add_argument('--nz', type=int, default=100, help='Latent size')
 parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--bng-momentum', type=float, default=0.1, help='Momentum of BatchNorm Generator')
-parser.add_argument('--n-gen', type=int, default=2, help='Number of Elements generated.')
 parser.add_argument('--noise-unconnex', action='store_true', help='Train with an Unconnex Noise vector (No N(0,1))')
 
 # k-NN parameters :
 parser.add_argument('--k', type=int, default=4, help='k-NN')
+parser.add_argument('--n-gen', type=int, default=2, help='Number of Elements generated.')
+parser.add_argument('--threshold', type=float, default=.05, help='threshold distance after where no neighbors')
 
 args = parser.parse_args()
 
@@ -101,9 +102,12 @@ for i in range(1, args.n_gen+1):
         fake = netGImage(latent).cpu()
         fake.data.resize_(args.batchSize, dim)
         D, I = index.search(fake.data.numpy(), args.k)
-        for nbs in I:
-            for elem in nbs:
-                found_img[elem] = found_img.get(elem, 0) + 1
+        D /= (imageSize ** 2 * 1.0)
+        for nbs in range(I.shape[0]):
+            for elem in range(I.shape[1]):
+                if D[nbs][elem] < args.threshold:
+                    el = I[nbs][elem]
+                    found_img[el] = found_img.get(el, 0) + 1
         X += [100.0 * len(found_img) / index.ntotal]
         print('[%d/%d] [%d/%d] %d/%d (%.2f)' % (
                 i, args.n_gen, j, len(trainloader), len(found_img), index.ntotal, 100.0 * len(found_img) / index.ntotal))
