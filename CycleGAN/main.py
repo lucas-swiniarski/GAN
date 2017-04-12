@@ -63,7 +63,7 @@ parser.add_argument('--reg-factor', type=float, default=10, help='Improved WGAN 
 
 args = parser.parse_args()
 
-args.manualSeed = random.randint(1, 10000) # fix seed
+args.manualSeed = 1 # fix seed
 print("Random Seed: ", args.manualSeed)
 random.seed(args.manualSeed)
 torch.manual_seed(args.manualSeed)
@@ -195,7 +195,6 @@ for epoch in range(1, args.epochs + 1):
         fakeImage = netGImage(latent)
         fakeLatent = netGLatent(input)[0]
         fakeLatent.data.resize_(batch_size, args.nz, 1, 1)
-        print(fakeImage.size(), fakeLatent.size())
 
         ############################
         # (1) Update D Image network: maximize log(D(x)) + log(1 - D(G(z)))

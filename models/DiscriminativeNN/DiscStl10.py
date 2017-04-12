@@ -75,7 +75,7 @@ class _netD(nn.Module):
 
         input = self.bn10(self.conv10(input))
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
-        print(input.size())
+
         input = self.bn11(self.conv11(input))
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
