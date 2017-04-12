@@ -53,6 +53,26 @@ def load_dataset(dataset, dataroot, batchSize, imageSize, workers, trainsetsize)
         testset = dset.MNIST(root=dataroot, train=False, download=True, transform=transform)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batchSize, shuffle=False, num_workers=int(workers))
         n_class = 10 # The number of classes
+    elif dataset == 'stl10':
+        transform = transforms.Compose([
+            transforms.Scale(imageSize),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+
+        trainset = dset.STL10(root=dataroot, split='train+unlabeled', download=True, transform=transform)
+
+        if trainsetsize > 0:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=trainsetsize, shuffle=True, num_workers=int(workers))
+            iterator = iter(trainloader)
+            data, labels = iterator.next()
+            trainset = torch.utils.data.TensorDataset(data, labels)
+
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(workers))
+
+        testset = dset.MNIST(root=dataroot, train=False, download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batchSize, shuffle=False, num_workers=int(workers))
+        n_class = 10 # The number of classes
     return trainloader, testloader, n_class
 
 def weights_init(m):
@@ -78,16 +98,6 @@ def weights_clamp(m, c=0.01):
             m.bias.data.clamp_(-c,c)
 
 ###
-# Parallel forward if using more than one gpu.
-###
-
-def parallel_forward(model, input, ngpu):
-    gpu_ids = None
-    if isinstance(input.data, torch.cuda.FloatTensor) and ngpu > 1:
-        gpu_ids = range(ngpu)
-    return nn.parallel.data_parallel(model, input, gpu_ids)
-
-###
 # One hot encoder : Given a target vector ( batchsize x 1 ) : return matrix (batchsize x n_class )
 ###
 
@@ -104,11 +114,10 @@ def one_hot_encoder(target, n_class):
 def generate_latent_tensor(batchSize, nz, noise_unconnex, n_class=0, target=None, info_gan_latent=0):
     if noise_unconnex:
         latent = torch.FloatTensor(batchSize, nz).normal_(0, 0.1)
-        latent.data.add_(torch.from_numpy(np.random.randint(-1, 2, (batchSize, nz))).float())
+        latent.add_(torch.from_numpy(np.random.randint(-1, 2, (batchSize, nz))).float())
     else:
         latent = torch.FloatTensor(batchSize, nz).normal_(0, 1)
 
-    # If there is classes : We are training an Auxiliary Classifier GAN.
     if n_class != 0:
         if not torch.is_tensor(target):
             target = torch.LongTensor(batchSize).random_(0, n_class)
@@ -149,3 +158,15 @@ def generate_dataset(netG, size, batchSize, workers, nz, n_class):
             data_tensor = torch.cat((data_tensor, output),0)
 
     return data_tensor.data, target_tensor.data
+
+###
+# Concatenate two tensors first dimension and mixing : input1 input2 -> input1[0], input2[0], input1[1]
+###
+
+def mix(input1, input2):
+    x = torch.randn(2, 3)
+    result = torch.cat((input2, input1), 0)
+    for i in range(input1.size(0)):
+        result[2 * i] = input1[i]
+        result[2 * i + 1] = input2[i]
+    return result
