@@ -9,14 +9,14 @@ import torch.optim as optim
 import torchvision.utils as vutils
 from torch.autograd import Variable
 
-sys.path.append("..")
-import utils
-import functools
-
 # For printing in real time on HPC
 import sys
 import os
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
+sys.path.append("..")
+import utils
+import functools
 
 parser = argparse.ArgumentParser()
 # Global parameters :
@@ -170,6 +170,13 @@ else:
 if args.info_gan_latent > 0:
     optimizerQ = optim.Adam([{'params': netG.parameters()},{'params': netD.parameters()}], lr=args.lr)
 
+if args.ngpu > 1:
+    gpu_ids = range(ngpu)
+    optimizerD = torch.nn.DataParallel(optimizerD, device_ids=gpu_ids)
+    optimizerG = torch.nn.DataParallel(optimizerG, device_ids=gpu_ids)
+    if args.info_gan_latent > 0:
+        optimizerQ = torch.nn.DataParallel(optimizerQ, device_ids=gpu_ids)
+
 # Keeps tracks of discriminator vs generator number of training
 critic_trained_times = 0
 
@@ -195,7 +202,7 @@ for epoch in range(1, args.epochs + 1):
         # - Real/Fake output
         # - Auxiliary Classifier GAN class, if exists
         # - InfoGAN parameter, if exists
-        output = utils.parallel_forward(netD, input, args.ngpu)
+        output = netD(input,)
 
         errD_real = 0
         if args.ac_gan:
@@ -217,11 +224,11 @@ for epoch in range(1, args.epochs + 1):
         # train with fake
 
         latent.data.resize_(batch_size, args.nz + n_class + args.info_gan_latent, 1, 1).copy_(utils.generate_latent_tensor(batch_size, args.nz, args.noise_unconnex, n_class, target, args.info_gan_latent))
-        fake = utils.parallel_forward(netG, latent, args.ngpu)
+        fake = netG(latent)
 
         #TODO: When Backprop through gradient implemented, here should be the augmented wasserstein paper Implementation
 
-        output = utils.parallel_forward(netD, fake.detach(), args.ngpu)
+        output =netD(fake.detach())
 
         errD_fake = 0
 
@@ -261,7 +268,7 @@ for epoch in range(1, args.epochs + 1):
 
             netG.zero_grad()
 
-            output = utils.parallel_forward(netD, fake, args.ngpu)
+            output = netD(fake)
 
             errG = 0
 
@@ -281,13 +288,14 @@ for epoch in range(1, args.epochs + 1):
         ############################
         # (3) Update Q network if InfoGAN
         ############################
+        errQ = Variable(torch.FloatTensor([0]))
 
         if args.info_gan_latent > 0:
             netD.zero_grad()
             netG.zero_grad()
 
-            fake = utils.parallel_forward(netG, latent, args.ngpu)
-            output = utils.parallel_forward(netD, fake, args.ngpu)
+            fake = netG(latent)
+            output = netD(fake)
 
             c = utils.get_latent_code(latent, args.info_gan_latent).squeeze()
             crossent_loss = torch.mean(torch.sum(torch.exp( - c ** 2 / 2) * torch.log(output[-1] + 1e-8), dim=1))

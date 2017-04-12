@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 class _netD(nn.Module):
-    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class, bias, dropout, bn_momentum):
+    def __init__(self, ndf, nc, wasserstein, ac_gan, n_class, bias, dropout, bn_momentum, info_gan_latent, output_size=1):
         super(_netD, self).__init__()
         self.wasserstein = wasserstein
         self.ac_gan = ac_gan
@@ -11,6 +11,8 @@ class _netD(nn.Module):
         self.dropout = dropout
         self.bias = bias
         self.fc_hidden_size = 250
+        self.info_gan_latent = info_gan_latent
+        self.output_size = output_size
 
         self.conv1 = nn.Conv2d(nc, ndf, 4, 2, 1, bias=bias)
 
@@ -23,11 +25,14 @@ class _netD(nn.Module):
         self.conv4 = nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=bias)
         self.bn4 = nn.BatchNorm2d(ndf * 8, momentum=bn_momentum)
 
+        self.conv5 = nn.Conv2d(ndf * 8, self.output_size, 2, 1, 0, bias=bias)
+
+        if info_gan_latent > 0:
+            self.conv5_infogan = nn.Conv2d(ndf * 8, self.info_gan_latent, 2, 1, 0, bias=bias)
         if ac_gan:
-            self.conv5 = nn.Conv2d(ndf * 8, 1 + self.fc_hidden_size, 2, 1, 0, bias=bias)
+            self.conv5_acgan = nn.Conv2d(ndf * 8, self.fc_hidden_size, 2, 1, 0, bias=bias)
             self.fc1 = nn.Linear(self.fc_hidden_size, self.n_class)
-        else:
-            self.conv5 = nn.Conv2d(ndf * 8, 1, 2, 1, 0, bias=bias)
+
         if self.dropout:
             self.drop = nn.Dropout2d(inplace=True)
 
@@ -47,21 +52,21 @@ class _netD(nn.Module):
             self.drop(input)
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
-        self.bn4.weight.data.clamp_(-0.01, 0.01)
-        self.bn4.bias.data.clamp_(-0.01, 0.01)
         input = self.bn4(self.conv4(input))
         if self.dropout:
             self.drop(input)
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 
-        self.conv5.weight[0].data.clamp_(-0.01, 0.01)
-        input = self.conv5(input)
+        output = []
+        output += [self.conv5(input).view(-1, self.output_size)]
 
         if not self.wasserstein:
-            input[:,0] = F.sigmoid(input[:,0])
+            output[0] = F.sigmoid(output[0])
 
-        if not self.ac_gan:
-            return input.view(-1, 1)
-        else:
-            input = input.view(-1, 1 + self.fc_hidden_size)
-            return input[:,0], self.fc1(F.relu(input[:,1:]))
+        if self.ac_gan:
+            output += [self.fc1(F.relu(self.conv5_acgan(input).view(-1, self.fc_hidden_size)))]
+
+        if self.info_gan_latent > 0:
+            output += [F.sigmoid(self.conv5_infogan(input).view(-1, self.info_gan_latent))]
+
+        return output

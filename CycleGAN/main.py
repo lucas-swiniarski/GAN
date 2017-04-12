@@ -80,12 +80,14 @@ sys.path.append('../models/DiscriminativeLatentNN')
 
 if args.dataset == 'cifar10':
     if args.model_g == 'base':
-        import GenCifar10 as ModelG
+        import GenCifar10 as ModelGImage
     elif args.model_g == 'upsampling':
-        import GenCifar10Upsampling as ModelG
+        import GenCifar10Upsampling as ModelGImage
     elif args.model_g == 'residual':
-        import GenCifar10Residual as ModelG
-    import DiscCifar10 as ModelD
+        import GenCifar10Residual as ModelGImage
+    import DiscLatent as ModelDLatent
+    import DiscCifar10 as ModelMixed
+
     imageSize, nc = 32, 3
 elif args.dataset == 'mnist':
     if args.model_g == 'base':
@@ -98,6 +100,12 @@ elif args.dataset == 'mnist':
     import DiscMnist as ModelMixed
 
     imageSize, nc = 28, 1
+elif args.dataset == 'stl10':
+    import GenStl10 as ModelGImage
+    import DiscLatent as ModelDLatent
+    import DiscStl10 as ModelMixed
+
+    imageSize, nc = 64, 3
 
 ###
 # Import data-sets.
@@ -344,7 +352,7 @@ for epoch in range(1, args.epochs + 1):
 
         if i % 100 == 0:
             vutils.save_image(utils.mix(input.data, netGImage(fakeLatent).data),
-                    '%s/%s_real_reconstruct_samples.png' % (args.outf, args.name))
+                    '%s/%s_real_reconstruct_samples_epoch_%03d.png' % (args.outf, args.name, epoch))
             fake = netGImage(fixed_latent)
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)

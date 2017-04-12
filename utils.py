@@ -53,6 +53,26 @@ def load_dataset(dataset, dataroot, batchSize, imageSize, workers, trainsetsize)
         testset = dset.MNIST(root=dataroot, train=False, download=True, transform=transform)
         testloader = torch.utils.data.DataLoader(testset, batch_size=batchSize, shuffle=False, num_workers=int(workers))
         n_class = 10 # The number of classes
+    elif dataset == 'stl10':
+        transform = transforms.Compose([
+            transforms.Scale(imageSize),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+
+        trainset = dset.STL10(root=dataroot, split='train+unlabeled', download=True, transform=transform)
+
+        if trainsetsize > 0:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=trainsetsize, shuffle=True, num_workers=int(workers))
+            iterator = iter(trainloader)
+            data, labels = iterator.next()
+            trainset = torch.utils.data.TensorDataset(data, labels)
+
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(workers))
+
+        testset = dset.MNIST(root=dataroot, train=False, download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batchSize, shuffle=False, num_workers=int(workers))
+        n_class = 10 # The number of classes
     return trainloader, testloader, n_class
 
 def weights_init(m):
@@ -95,11 +115,9 @@ def generate_latent_tensor(batchSize, nz, noise_unconnex, n_class=0, target=None
     if noise_unconnex:
         latent = torch.FloatTensor(batchSize, nz).normal_(0, 0.1)
         latent.add_(torch.from_numpy(np.random.randint(-1, 2, (batchSize, nz))).float())
-        print(latent)
     else:
         latent = torch.FloatTensor(batchSize, nz).normal_(0, 1)
 
-    # If there is classes : We are training an Auxiliary Classifier GAN.
     if n_class != 0:
         if not torch.is_tensor(target):
             target = torch.LongTensor(batchSize).random_(0, n_class)
