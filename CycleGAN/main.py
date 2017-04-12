@@ -4,7 +4,6 @@ import os
 import random
 import torch
 import torch.nn as nn
-import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torchvision.utils as vutils
 from torch.autograd import Variable
@@ -15,7 +14,6 @@ import utils
 import functools
 
 # For printing in real time on HPC
-import os
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 parser = argparse.ArgumentParser()
@@ -206,38 +204,29 @@ for epoch in range(1, args.epochs + 1):
         # train with real
 
         output = netDImage(input)
-
-        errD_I_real = 0
-
-        if args.wasserstein:
-            errD_I_real -= torch.mean(output[0])
-        else:
-            label_rf.data.resize_(batch_size).fill_(real_label)
-            errD_I_real += criterion_rf(output[0], label_rf)
-            errD_I_real.backward()
-
         D_I_x = output[0].data.mean()
 
+        if args.wasserstein:
+            errD_I_real = - torch.mean(output[0])
+        else:
+            label_rf.data.resize_(batch_size).fill_(real_label)
+            errD_I_real = criterion_rf(output[0], label_rf)
+
+
         # train with fake
-
         output = netDImage(fakeImage.detach())
-
-        errD_I_fake = 0
+        D_I_z = output[0].data.mean()
 
         if args.wasserstein:
-            errD_I_fake += torch.mean(output[0])
+            errD_I_fake = torch.mean(output[0])
         else:
             label_rf.data.fill_(fake_label)
-            errD_I_fake += criterion_rf(output[0], label_rf)
-            errD_I_fake.backward()
-        D_I_z = output[0].data.mean()
+            errD_I_fake = criterion_rf(output[0], label_rf)
 
         # Step
         errD_I = errD_I_real + errD_I_fake
-
-        if args.wasserstein:
-            errD_I.backward()
-
+        optimizerDImage.zero_grad()
+        errD_I.backward()
         optimizerDImage.step()
 
         if args.clamp:
@@ -247,44 +236,32 @@ for epoch in range(1, args.epochs + 1):
         # (2) Update D Latent network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
 
-        netDLatent.train()
-        netDLatent.zero_grad()
 
         # train with real
-
         output = netDLatent(latent)
-
-        errD_L_real = 0
+        D_L_x = output[0].data.mean()
 
         if args.wasserstein:
-            errD_L_real -= torch.mean(output[0])
+            errD_L_real = - torch.mean(output[0])
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
-            errD_L_real += criterion_rf(output[0], label_rf)
-            errD_L_real.backward()
-
-        D_L_x = output[0].data.mean()
+            errD_L_real = criterion_rf(output[0], label_rf)
 
         # train with fake
         output = netDLatent(fakeLatent.detach())
-
-        errD_L_fake = 0
+        D_L_z = output[0].data.mean()
 
         if args.wasserstein:
-            errD_L_fake += torch.mean(output[0])
+            errD_L_fake = torch.mean(output[0])
         else:
             label_rf.data.fill_(fake_label)
-            errD_L_fake += criterion_rf(output[0], label_rf)
-            errD_L_fake.backward()
+            errD_L_fake = criterion_rf(output[0], label_rf)
 
-        D_L_z = output[0].data.mean()
 
         # Step
         errD_L = errD_L_real + errD_L_fake
-
-        if args.wasserstein:
-            errD_L.backward()
-
+        optimizerDLatent.zero_grad()
+        errD_L.backward()
         optimizerDLatent.step()
 
         if args.clamp:
@@ -301,23 +278,16 @@ for epoch in range(1, args.epochs + 1):
         ###########################
 
         if critic_trained_times == args.n_critic:
-            netDImage.train()
-            netDLatent.train()
             critic_trained_times = 0
-
-            netGImage.zero_grad()
-            netGLatent.zero_grad()
 
             # netGImage disc. loss
             output = netDImage(fakeImage)
 
-            errG_I = 0
-
             if args.wasserstein:
-                errG_I += - torch.mean(output[0])
+                errG_I = - torch.mean(output[0])
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
-                errG_I += criterion_rf(output[0], label_rf)
+                errG_I = criterion_rf(output[0], label_rf)
 
             # latent -> image -> latent loss
             output = netGLatent(fakeImage)
@@ -326,19 +296,18 @@ for epoch in range(1, args.epochs + 1):
             # netGLatent disc. loss
             output = netDLatent(fakeLatent)
 
-            errG_L = 0
-
             if args.wasserstein:
-                errG_L += - torch.mean(output[0])
+                errG_L = - torch.mean(output[0])
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
-                errG_L += criterion_rf(output[0], label_rf)
+                errG_L = criterion_rf(output[0], label_rf)
 
             # image -> latent -> image loss
             output = netGImage(fakeLatent)
             circle_I = torch.mean(torch.abs(input - output))
             factor = args.lbda * epoch / args.epochs
             errG = errG_I + errG_L +  (circle_L + circle_I) * factor
+            optimizerG.zero_grad()
             errG.backward()
             optimizerG.step()
 
