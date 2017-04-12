@@ -29,7 +29,7 @@ class _netD(nn.Module):
         self.conv6 = nn.Conv2d(ndf * 2, ndf * 2, 3, padding=1, bias=bias)
         self.bn6 = nn.BatchNorm2d(ndf * 2)
         # ndf * 2 x 32 x 32
-        self.conv7 = nn.Conv2d(ndf * 2, ndf * 4, 3, padding=1, bias=bias)
+        self.conv7 = nn.Conv2d(ndf * 2, ndf * 4, 3, stride=2,padding=1, bias=bias)
         self.bn7 = nn.BatchNorm2d(ndf * 4)
         self.conv8 = nn.Conv2d(ndf * 4, ndf * 4, 3, padding=1, bias=bias)
         self.bn8 = nn.BatchNorm2d(ndf * 4)
@@ -75,7 +75,7 @@ class _netD(nn.Module):
 
         input = self.bn10(self.conv10(input))
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
-
+        print(input.size())
         input = self.bn11(self.conv11(input))
         F.leaky_relu(input, negative_slope=0.2, inplace=True)
 

@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class _netG(nn.Module):
     def __init__(self, n_input, ngf, nc, bn_momentum):
         super(_netG, self).__init__()
-        self.convt1 = nn.ConvTranspose2d(n_input, ngf * 8, 8, 1, 0, bias=False)
+        self.convt1 = nn.ConvTranspose2d(n_input, ngf * 8, 4, 1, 0, bias=False)
         self.conv1_1 = nn.Conv2d(ngf * 8, ngf * 8, 3, padding=1)
         self.bn1_res_1 = nn.BatchNorm2d(ngf * 8, momentum=bn_momentum)
         self.conv1_2 = nn.Conv2d(ngf * 8, ngf * 8, 3, padding=1)
@@ -19,7 +19,7 @@ class _netG(nn.Module):
         self.bn2_res_2 = nn.BatchNorm2d(ngf * 4, momentum=bn_momentum)
         self.bn2 = nn.BatchNorm2d(ngf * 4, momentum=bn_momentum)
 
-        self.convt3 = nn.ConvTranspose2d(ngf * 4, ngf * 2, 3, 2, 1, bias=False)
+        self.convt3 = nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1, bias=False)
         self.conv3_1 = nn.Conv2d(ngf * 2, ngf * 2, 3, padding=1)
         self.bn3_res_1 = nn.BatchNorm2d(ngf * 2, momentum=bn_momentum)
         self.conv3_2 = nn.Conv2d(ngf * 2, ngf * 2, 3, padding=1)

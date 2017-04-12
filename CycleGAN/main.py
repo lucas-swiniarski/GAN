@@ -195,6 +195,7 @@ for epoch in range(1, args.epochs + 1):
         fakeImage = netGImage(latent)
         fakeLatent = netGLatent(input)[0]
         fakeLatent.data.resize_(batch_size, args.nz, 1, 1)
+        print(fakeImage.size(), fakeLatent.size())
 
         ############################
         # (1) Update D Image network: maximize log(D(x)) + log(1 - D(G(z)))
