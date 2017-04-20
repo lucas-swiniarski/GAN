@@ -316,6 +316,9 @@ for epoch in range(1, args.epochs + 1):
             errG.backward()
             optimizerG.step()
 
+            errD_L = errG_L
+            D_L_x = errD_L.data[0]
+
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
                      errG_L.data[0], D_L_x, D_L_z,
