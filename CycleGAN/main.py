@@ -207,7 +207,6 @@ for epoch in range(1, args.epochs + 1):
         # train with real
 
         output = netDImage(input)
-        D_I_x = output[0].data.mean()
 
         if args.wasserstein:
             errD_I_real = - torch.mean(output[0])
@@ -215,16 +214,19 @@ for epoch in range(1, args.epochs + 1):
             label_rf.data.resize_(batch_size).fill_(real_label)
             errD_I_real = criterion_rf(output[0], label_rf)
 
+        D_I_x = output[0].data.mean()
+
 
         # train with fake
         output = netDImage(fakeImage.detach())
-        D_I_z = output[0].data.mean()
 
         if args.wasserstein:
             errD_I_fake = torch.mean(output[0])
         else:
             label_rf.data.fill_(fake_label)
             errD_I_fake = criterion_rf(output[0], label_rf)
+
+        D_I_z = output[0].data.mean()
 
         # Step
         errD_I = errD_I_real + errD_I_fake
@@ -270,7 +272,8 @@ for epoch in range(1, args.epochs + 1):
         # if args.clamp:
         #     netDLatent.apply(functools.partial(utils.weights_clamp, c=args.c))
         #
-        # critic_trained_times += 1
+
+        critic_trained_times += 1
 
         ############################
         # (3) Update G networks :
@@ -315,7 +318,7 @@ for epoch in range(1, args.epochs + 1):
 
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
-                     errD_L.data[0], D_L_x, D_L_z,
+                     errG_L.data[0], D_L_x, D_L_z,
                      errD_I.data[0], D_I_x, D_I_z,
                      errG.data[0], errG_I.data[0], errG_L.data[0],
                      circle_I.data[0]))
