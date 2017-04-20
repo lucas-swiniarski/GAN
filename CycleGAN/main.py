@@ -14,7 +14,7 @@ import utils
 import functools
 
 # For printing in real time on HPC
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+# sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
 parser = argparse.ArgumentParser()
 # Global parameters :
@@ -40,6 +40,7 @@ parser.add_argument('--ngf', type=int, default=64)
 parser.add_argument('--bng-momentum', type=float, default=0.1, help='Momentum of BatchNorm Generator')
 parser.add_argument('--model-g', type=str, default='base', help='Generator model : base | upsampling | residual')
 parser.add_argument('--noise-unconnex', action='store_true', help='Train with an Unconnex Noise vector (No N(0,1))')
+parser.add_argument('--g-discontinuity', action='store_true', help='G with discontinuity')
 
 # Discriminator Parameters :
 parser.add_argument('--noise', action='store_true', help='Add gaussian noise to real data')
@@ -127,7 +128,7 @@ if not args.wasserstein:
         criterion_rf.cuda()
         label_rf = label_rf.cuda()
 
-netGImage = ModelGImage._netG(args.nz, args.ngf, nc, args.bng_momentum)
+netGImage = ModelGImage._netG(args.nz, args.ngf, nc, args.bng_momentum, args.g_discontinuity)
 netGImage.apply(utils.weights_init)
 print(netGImage)
 
@@ -317,7 +318,8 @@ for epoch in range(1, args.epochs + 1):
             optimizerG.step()
 
             errD_L = errG_L
-            D_L_x = errD_L.data[0]
+            D_L_x = torch.mean(torch.pow(latent,2))
+            D_L_z = errD_L.data[0]
 
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
