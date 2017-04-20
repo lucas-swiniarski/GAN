@@ -10,18 +10,18 @@ class _netD(nn.Module):
 
         self.wasserstein = wasserstein
         self.conv1 = nn.Conv2d(nz, ndf * 16, 1, bias=self.bias)
-        self.drop1 = nn.Dropout(p=0.2)
+        self.drop1 = nn.Dropout(p=0)
         self.conv2 = nn.Conv2d(ndf * 16, ndf * 16, 1, bias=self.bias)
         self.bn2 = nn.BatchNorm2d(ndf * 16, momentum=bn_momentum)
-        self.drop2 = nn.Dropout(p=0.2)
+        self.drop2 = nn.Dropout(p=0)
         self.conv3 = nn.Conv2d(ndf * 16, ndf * 16, 1, bias=self.bias)
         self.bn3 = nn.BatchNorm2d(ndf * 16, momentum=bn_momentum)
-        self.drop3 = nn.Dropout(p=0.2)
+        self.drop3 = nn.Dropout(p=0)
         self.conv4 = nn.Conv2d(ndf * 16, ndf * 16, 1, bias=self.bias)
         self.bn4 = nn.BatchNorm2d(ndf * 16, momentum=bn_momentum)
-        self.drop4 = nn.Dropout(p=0.2)
+        self.drop4 = nn.Dropout(p=0)
         self.conv5 = nn.Conv2d(ndf * 16, 1, 1, bias=self.bias)
-        self.drop5 = nn.Dropout(p=0.2)
+        self.drop5 = nn.Dropout(p=0)
 
     def forward(self, input):
         input = self.drop1(self.conv1(input))

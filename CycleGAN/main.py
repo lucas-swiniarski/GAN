@@ -140,9 +140,9 @@ netGLatent = ModelMixed._netD(args.ndf, nc, args.wasserstein, False, 0, False, F
 netGLatent.apply(utils.weights_init)
 print(netGLatent)
 
-# netDLatent = ModelDLatent._netD(args.ndf, args.nz, args.wasserstein, args.bias, args.bnd_momentum)
-# netDLatent.apply(utils.weights_init)
-# print(netDLatent)
+netDLatent = ModelDLatent._netD(args.ndf, args.nz, args.wasserstein, args.bias, args.bnd_momentum)
+netDLatent.apply(utils.weights_init)
+print(netDLatent)
 
 input = torch.FloatTensor(args.batchSize, 3, imageSize, imageSize)
 latent = torch.FloatTensor(args.batchSize, args.nz, 1, 1)
@@ -153,7 +153,7 @@ if args.cuda:
     netGImage.cuda()
     netDImage.cuda()
     netGLatent.cuda()
-    # netDLatent.cuda()
+    netDLatent.cuda()
     input = input.cuda()
     latent = latent.cuda()
     fixed_latent = fixed_latent.cuda()
@@ -163,11 +163,11 @@ latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
 
 if args.adam:
-    # optimizerDLatent = optim.Adam(netDLatent.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
+    optimizerDLatent = optim.Adam(netDLatent.parameters(), lr = args.lr * 100, betas = (args.beta1, 0.999))
     optimizerDImage = optim.Adam(netDImage.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
     optimizerG = optim.Adam([{'params' : netGLatent.parameters()}, {'params' : netGImage.parameters()}], lr = args.lr, betas = (args.beta1, 0.999))
 else:
-    # optimizerDLatent = optim.RMSprop(netDLatent.parameters(), lr = args.lr)
+    optimizerDLatent = optim.RMSprop(netDLatent.parameters(), lr = args.lr)
     optimizerDImage = optim.RMSprop(netDImage.parameters(), lr = args.lr)
     optimizerG = optim.RMSprop([{'params' : netGLatent.parameters()}, {'params' : netGImage.parameters()}], lr = args.lr)
 
@@ -242,37 +242,35 @@ for epoch in range(1, args.epochs + 1):
         # (2) Update D Latent network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
 
-
         # train with real
-        # output = netDLatent(latent)
-        # D_L_x = output[0].data.mean()
-        #
-        # if args.wasserstein:
-        #     errD_L_real = - torch.mean(output[0])
-        # else:
-        #     label_rf.data.resize_(batch_size).fill_(real_label)
-        #     errD_L_real = criterion_rf(output[0], label_rf)
-        #
-        # # train with fake
-        # output = netDLatent(fakeLatent.detach())
-        # D_L_z = output[0].data.mean()
-        #
-        # if args.wasserstein:
-        #     errD_L_fake = torch.mean(output[0])
-        # else:
-        #     label_rf.data.fill_(fake_label)
-        #     errD_L_fake = criterion_rf(output[0], label_rf)
-        #
-        #
-        # # Step
-        # errD_L = errD_L_real + errD_L_fake
-        # optimizerDLatent.zero_grad()
-        # errD_L.backward()
-        # optimizerDLatent.step()
-        #
-        # if args.clamp:
-        #     netDLatent.apply(functools.partial(utils.weights_clamp, c=args.c))
-        #
+        output = netDLatent(latent)
+        D_L_x = output[0].data.mean()
+
+        if args.wasserstein:
+            errD_L_real = - torch.mean(output[0])
+        else:
+            label_rf.data.resize_(batch_size).fill_(real_label)
+            errD_L_real = criterion_rf(output[0], label_rf)
+
+        # train with fake
+        output = netDLatent(fakeLatent.detach())
+        D_L_z = output[0].data.mean()
+
+        if args.wasserstein:
+            errD_L_fake = torch.mean(output[0])
+        else:
+            label_rf.data.fill_(fake_label)
+            errD_L_fake = criterion_rf(output[0], label_rf)
+
+        # Step
+        errD_L = errD_L_real + errD_L_fake
+        optimizerDLatent.zero_grad()
+        errD_L.backward()
+        optimizerDLatent.step()
+
+        if args.clamp:
+            netDLatent.apply(functools.partial(utils.weights_clamp, c=args.c * 10))
+
 
         critic_trained_times += 1
 
@@ -302,12 +300,13 @@ for epoch in range(1, args.epochs + 1):
             circle_L = Variable(torch.FloatTensor([0]))
 
             # netGLatent disc. loss
-            errG_L = torch.mean(torch.pow(fakeLatent, 2))
-            # if args.wasserstein:
-            #     errG_L = - torch.mean(output[0])
-            # else:
-            #     label_rf.data.fill_(real_label) # fake labels are real for generator cost
-            #     errG_L = criterion_rf(output[0], label_rf)
+            output = netDLatent(fakeLatent)
+
+            if args.wasserstein:
+                errG_L = - torch.mean(output[0])
+            else:
+                label_rf.data.fill_(real_label) # fake labels are real for generator cost
+                errG_L = criterion_rf(output[0], label_rf)
 
             # image -> latent -> image loss
             output = netGImage(fakeLatent)
@@ -316,14 +315,10 @@ for epoch in range(1, args.epochs + 1):
             optimizerG.zero_grad()
             errG.backward()
             optimizerG.step()
-
-            errD_L = errG_L
-            D_L_x = torch.mean(torch.pow(latent,2))
-            D_L_z = errD_L.data[0]
-
+            print('Fake : [Mean : %.4f Std : %.4f] Real : [Mean : %.4f Std : %.4f] ' % (fakeLatent.data.mean(), fakeLatent.data.std(dim=1).mean(), latent.data.mean(), latent.data.std(dim=1).mean()))
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
-                     errG_L.data[0], D_L_x, D_L_z,
+                     errD_L.data[0], D_L_x, D_L_z,
                      errD_I.data[0], D_I_x, D_I_z,
                      errG.data[0], errG_I.data[0], errG_L.data[0],
                      circle_I.data[0]))

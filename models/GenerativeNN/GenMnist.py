@@ -3,8 +3,9 @@ import torch
 import torch.nn.functional as F
 
 class _netG(nn.Module):
-    def __init__(self, n_input, ngf, nc, bn_momentum):
+    def __init__(self, n_input, ngf, nc, bn_momentum, discontinuity):
         super(_netG, self).__init__()
+        self.discontinuity = discontinuity
         self.convt1 = nn.ConvTranspose2d(n_input, ngf * 8, 2, 1, 0, bias=False)
         self.bn1 = nn.BatchNorm2d(ngf * 8, momentum=bn_momentum)
 
@@ -18,6 +19,12 @@ class _netG(nn.Module):
         self.bn4 = nn.BatchNorm2d(ngf, momentum=bn_momentum)
 
         self.convt5 = nn.ConvTranspose2d(ngf, nc, 4, 2, 1, bias=False)
+
+    def non_linearity(self, input):
+        input = F.relu(input)
+        if self.discontinuity:
+            return input + torch.sign(input)
+        return input
 
     def forward(self, input):
         input = self.bn1(self.convt1(input))
