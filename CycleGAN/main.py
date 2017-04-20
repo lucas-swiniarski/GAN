@@ -186,7 +186,10 @@ for epoch in range(1, args.epochs + 1):
 
         input.data.resize_(data.size()).copy_(data)
         if args.noise:
-            input.data.add_(torch.FloatTensor(data.size()).normal_(0, .01))
+            noise = torch.FloatTensor(data.size()).normal_(0, .01)
+            if args.cuda:
+                noise = noise.cuda()
+            input.data.add_(noise)
 
         latent.data.resize_(batch_size, args.nz, 1, 1).copy_(utils.generate_latent_tensor(batch_size, args.nz, args.noise_unconnex, 0))
 
