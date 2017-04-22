@@ -58,7 +58,7 @@ class _netGLatent(BaseModel):
 
 class _netDImage(BaseModel):
     def initialize(self, args):
-        self.model = networks.define_D(args.nc, args.ndif, args.imageSize, args.di_n_layers,  args.di_n_residual, args.wasserstein, args.di_dropout)
+        self.model = networks.define_D(args.nc, args.ndif, args.imageSize, args.di_n_layers,  args.di_n_residual, not args.wasserstein, args.di_dropout)
         networks.print_network(self.model)
         self.optimizer = optim.Adam(self.model.parameters(), lr = args.lr, betas = (args.beta1, 0.999)) if args.adam else optim.RMSprop(self.model.parameters(), lr = args.lr)
         if args.cuda:
@@ -80,7 +80,7 @@ class _netDImage(BaseModel):
 
 class _netDLatent(BaseModel):
     def initialize(self, args):
-        self.model = networks.define_D_latent(args.nz, args.ndlf, args.dl_dropout, args.dl_n_layers, args.wasserstein)
+        self.model = networks.define_D_latent(args.nz, args.ndlf, args.dl_dropout, args.dl_n_layers, not args.wasserstein)
         networks.print_network(self.model)
         self.optimizer = optim.Adam(self.model.parameters(), lr = args.lr, betas = (args.beta1, 0.999)) if args.adam else optim.RMSprop(self.model.parameters(), lr = args.lr)
         if args.cuda:

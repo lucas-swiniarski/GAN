@@ -148,11 +148,8 @@ for epoch in range(1, args.epochs + 1):
         input.data.resize_(data.size()).copy_(data)
         if args.di_noise > 0:
             noise = args.tensor(data.size()).normal_(0, args.di_noise)
-            if args.cuda:
-                noise = noise.cuda()
             input.data.add_(noise)
         latent.data.resize_(batch_size, args.nz, 1, 1).normal_(0, 1)
-
         fakeImage = netGImage(latent)
         fakeLatent = netGLatent(input)
 
@@ -161,7 +158,6 @@ for epoch in range(1, args.epochs + 1):
         ###########################
 
         # train with real
-
         output = netDImage(input)
 
         if args.wasserstein:
@@ -191,7 +187,7 @@ for epoch in range(1, args.epochs + 1):
         netDImage.optimizer.step()
 
         if args.clamp:
-            netDImage.apply(functools.partial(networks.weights_clamp, c=args.c))
+            netDImage.model.apply(functools.partial(networks.weights_clamp, c=args.c))
 
         ############################
         # (2) Update D Latent network: maximize log(D(x)) + log(1 - D(G(z)))
@@ -200,7 +196,6 @@ for epoch in range(1, args.epochs + 1):
         # train with real
         output = netDLatent(latent)
         D_L_x = output.data.mean()
-
         if args.wasserstein:
             errD_L_real = - torch.mean(output)
         else:
@@ -224,7 +219,7 @@ for epoch in range(1, args.epochs + 1):
         netDLatent.optimizer.step()
 
         if args.clamp:
-            netDLatent.apply(functools.partial(networks.weights_clamp, c=args.c * 10))
+            netDLatent.model.apply(functools.partial(networks.weights_clamp, c=args.c * 10))
 
 
         critic_trained_times += 1
@@ -272,7 +267,6 @@ for epoch in range(1, args.epochs + 1):
             errG.backward()
             netGLatent.optimizer.step()
             netGImage.optimizer.step()
-            print('Fake : [Mean : %.4f Std : %.4f] Real : [Mean : %.4f Std : %.4f] ' % (fakeLatent.data.mean(), fakeLatent.data.std(dim=1).mean(), latent.data.mean(), latent.data.std(dim=1).mean()))
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
                      errD_L.data[0], D_L_x, D_L_z,

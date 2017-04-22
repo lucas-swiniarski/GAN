@@ -33,10 +33,10 @@ def define_G(nz, nc, nf, imageSize, n_layers, n_residual, tensor, upsampling=Tru
     assert int(stacks) == stacks, 'Image not power of 2 : {}' % (imageSize)
     stacks = int(stacks)
 
-    stack_dim = nf * 2 ** stacks if up == True else nf
+    stack_dim = nf * 2 ** (stacks - 2) if up == True else nf
     current_image_size = 1 if up else imageSize
     layers = []
-    fmc = functools.partial(FeatureMapChanger, upsampling=upsampling, up=True, norm_layer=norm)
+    fmc = functools.partial(FeatureMapChanger, upsampling=upsampling, up=up, norm_layer=norm)
     for stack in range(1, stacks + 1):
         if stack >= up_to:
             non_linearity = nn.ReLU
@@ -56,7 +56,7 @@ def define_G(nz, nc, nf, imageSize, n_layers, n_residual, tensor, upsampling=Tru
         current_image_size = current_image_size * 2 if up else current_image_size // 2
         if noise > 0:
             layers += [Noiser(noise, tensor)]
-        layers += [nn.Dropout2d(p=dropout)] if dropout > 0
+        layers = layers + [nn.Dropout2d(p=dropout)] if dropout > 0 else layers
         layers += [ResnetBlock(dim_out_stack, norm) for residual in range(n_residual)]
         for layer in range(n_layers):
             layers += [CoBlock(dim_out_stack, dim_out_stack, norm, non_linearity)]
@@ -68,7 +68,7 @@ def define_G(nz, nc, nf, imageSize, n_layers, n_residual, tensor, upsampling=Tru
     if up:
         layers += [nn.Tanh()]
     else:
-        layers += [InstanceNormalization(dim_out_stack)]
+        layers += [InstanceNormalization(dim_out_stack, affine=False)]
     netG = nn.Sequential(*layers)
     netG.apply(weights_init)
     return netG
@@ -85,15 +85,16 @@ def define_D(nc, nf, imageSize, n_layers,  n_residual, has_sigmoid, dropout=0):
         dim_out_stack = stack_dim if stack == 0 else stack_dim * 2
         stack_dim = stack_dim if stack == 0 else stack_dim * 2
         layers += FeatureMapChanger(dim_in_stack, dim_out_stack, non_linearity=non_linearity, up=False)
-        layers += [nn.Dropout2d(p=dropout)] if dropout > 0
+        layers = layers + [nn.Dropout2d(p=dropout)] if dropout > 0 else layers
         layers += [ResnetBlock(dim_out_stack) for residual in range(n_residual)]
         for layer in range(n_layers):
             layers += [CoBlock(dim_out_stack, dim_out_stack, non_linearity=non_linearity)]
-            layers += [nn.Dropout2d(p=dropout)] if dropout > 0
+            layers = layers + [nn.Dropout2d(p=dropout)] if dropout > 0 else layers
             layers += [ResnetBlock(dim_out_stack) for residual in range(n_residual)]
 
     layers += [nn.Conv2d(dim_out_stack, 1, 2)]
-    layer += [nn.Sigmoid()] if has_sigmoid
+    if has_sigmoid:
+        layers += [nn.Sigmoid()]
     netD = nn.Sequential(*layers)
     netD.apply(weights_init)
     return netD
@@ -102,12 +103,12 @@ def define_D_latent(nz, nf, dropout, n_layers, has_sigmoid):
     layers = []
     for layer in range(1, n_layers + 1):
         if layer == 1:
-            layers += [CoBlock(nz, nf, kernel_size=1)]
+            layers += [CoBlock(nz, nf, kernel_size=1, padding=0)]
             layers += [nn.Dropout2d(p=dropout)]
         elif layer == n_layers:
-            layers += [CoBlock(nf, 1, kernel_size=1)]
+            layers += [CoBlock(nf, 1, kernel_size=1, padding=0)]
         else:
-            layers += [CoBlock(nf, nf, kernel_size=1)]
+            layers += [CoBlock(nf, nf, kernel_size=1, padding=0)]
     if has_sigmoid:
         layers += [nn.Sigmoid()]
     netD = nn.Sequential(*layers)
@@ -145,12 +146,13 @@ class InstanceNormalization(torch.nn.Module):
     ref: https://arxiv.org/pdf/1607.08022.pdf
     """
 
-    def __init__(self, dim, eps=1e-5):
+    def __init__(self, dim, eps=1e-5, affine=True):
         super(InstanceNormalization, self).__init__()
         self.weight = nn.Parameter(torch.FloatTensor(dim))
         self.bias = nn.Parameter(torch.FloatTensor(dim))
         self.eps = eps
         self._reset_parameters()
+        self.affine = affine
 
     def _reset_parameters(self):
         self.weight.data.uniform_()
@@ -158,16 +160,22 @@ class InstanceNormalization(torch.nn.Module):
 
     def forward(self, x):
         n = x.size(2) * x.size(3)
-        t = x.view(x.size(0), x.size(1), n)
+        if n > 1:
+            t = x.view(x.size(0), x.size(1), n)
+        else:
+            t = x.view(x.size(0), 1, x.size(1))
         mean = torch.mean(t, 2).unsqueeze(2).expand_as(x)
         # Calculate the biased var. torch.var returns unbiased var
-        var = torch.var(t, 2).unsqueeze(2).expand_as(x) * ((n - 1) / float(n))
-        scale_broadcast = self.weight.unsqueeze(1).unsqueeze(1).unsqueeze(0)
-        scale_broadcast = scale_broadcast.expand_as(x)
-        shift_broadcast = self.bias.unsqueeze(1).unsqueeze(1).unsqueeze(0)
-        shift_broadcast = shift_broadcast.expand_as(x)
+        var = torch.var(t, 2).unsqueeze(2).expand_as(x)
+        if n > 1:
+            var *= (n - 1) / float(n)
         out = (x - mean) / torch.sqrt(var + self.eps)
-        out = out * scale_broadcast + shift_broadcast
+        if self.affine:
+            scale_broadcast = self.weight.unsqueeze(1).unsqueeze(1).unsqueeze(0)
+            scale_broadcast = scale_broadcast.expand_as(x)
+            shift_broadcast = self.bias.unsqueeze(1).unsqueeze(1).unsqueeze(0)
+            shift_broadcast = shift_broadcast.expand_as(x)
+            out = out * scale_broadcast + shift_broadcast
         return out
 
 # Define a resnet block

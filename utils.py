@@ -44,3 +44,17 @@ def load_dataset(args):
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(args.workers))
         nc = 3
     return trainloader, nc
+
+
+###
+# Concatenate two tensors first dimension and mixing : input1 input2 -> input1[0], input2[0], input1[1]
+# Used to visualize reconstructed images
+###
+
+def mix(input1, input2):
+    x = torch.randn(2, 3)
+    result = torch.cat((input2, input1), 0)
+    for i in range(input1.size(0)):
+        result[2 * i] = input1[i]
+        result[2 * i + 1] = input2[i]
+    return result
