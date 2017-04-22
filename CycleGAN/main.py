@@ -63,7 +63,7 @@ parser.add_argument('--ndif', type=int, default=64)
 parser.add_argument('--di-n-layers', type=int, default=0)
 parser.add_argument('--di-n-residual', type=int, default=0)
 parser.add_argument('--di-dropout',  type=float, default=.2, help='Dropouts on discriminator')
-parser.add_argument('--di-noise',  type=float, default=.2, help='Dropouts on discriminator')
+parser.add_argument('--di-noise',  type=float, default=.2, help='Noise on discriminator')
 
 # Discriminator Latent Parameters :
 parser.add_argument('--ndlf', type=int, default=64)

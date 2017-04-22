@@ -127,7 +127,7 @@ def FeatureMapChanger(dim_in, dim_out, current_image_size=None, non_linearity=nn
         else:
             layers += [nn.ConvTranspose2d(dim_in, dim_out, 4, padding=1, stride=2)]
         layers += [norm_layer(dim_out)]
-        layers += [non_linearity(inplace=True)]
+        layers += [non_linearity()]
     else:
         layers += [CoBlock(dim_in, dim_out, norm_layer, non_linearity, stride=2)]
     return layers
@@ -210,7 +210,7 @@ class CoBlock(nn.Module):
     def build_conv_block(self, dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity):
         conv_block = [nn.Conv2d(dim_in, dim_out, kernel_size=kernel_size, padding=padding, stride=stride)]
         conv_block += [norm_layer(dim_out)]
-        conv_block += [non_linearity(inplace=True)]
+        conv_block += [non_linearity()]
         return nn.Sequential(*conv_block)
 
     def forward(self, x):
@@ -218,17 +218,12 @@ class CoBlock(nn.Module):
 
 # x -> Relu(x) + sign(x)
 class NonLinearity(nn.Module):
-    def __init__(self, inplace=False):
+    def __init__(self):
         super(NonLinearity, self).__init__()
-        self.inplace = inplace
 
     def forward(self, x):
-        if self.inplace:
-            F.relu(x, inplace=True)
-            x.add_(torch.sign(x))
-        else:
-            output = F.relu(x)
-            return output + torch.sign(output)
+        out = F.relu(x)
+        return out.add(torch.sign(out))
 
 # Add gaussian Noise
 class Noiser(nn.Module):
@@ -238,4 +233,5 @@ class Noiser(nn.Module):
         self.tensor = tensor
 
     def forward(self, x):
-        return x.data.add(self.tensor(x.size()).normal_(0, self.noise))
+        x.data.add_(self.tensor(x.size()).normal_(0, self.noise))
+        return x
