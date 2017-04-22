@@ -20,7 +20,7 @@ class _netGImage(BaseModel):
         return self.model(input)
 
     def save(self, label):
-        save_network(self.model, 'G_img', label)
+        self.save_network(self.model, 'G_img', label)
 
     def update_learning_rate(self):
         lr = self.old_lr * self.args.niter_decay
@@ -46,7 +46,7 @@ class _netGLatent(BaseModel):
         return self.model(input)
 
     def save(self, label):
-        save_network(self.model, 'G_latent', label)
+        self.save_network(self.model, 'G_latent', label)
 
     def update_learning_rate(self):
         lr = self.old_lr * self.args.niter_decay
@@ -68,7 +68,7 @@ class _netDImage(BaseModel):
         return self.model(input)
 
     def save(self, label):
-        save_network(self.model, 'G_img', label)
+        self.save_network(self.model, 'G_img', label)
 
     def update_learning_rate(self):
         lr = self.old_lr * self.args.niter_decay
@@ -90,7 +90,7 @@ class _netDLatent(BaseModel):
         return self.model(input)
 
     def save(self, label):
-        save_network(self.model, 'G_img', label)
+        self.save_network(self.model, 'G_img', label)
 
     def update_learning_rate(self):
         lr = self.old_lr * self.args.niter_decay
