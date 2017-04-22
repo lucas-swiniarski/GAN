@@ -240,7 +240,8 @@ for epoch in range(1, args.epochs + 1):
 
         if critic_trained_times == args.n_critic:
             critic_trained_times = 0
-
+            netGLatent.optimizer.zero_grad()
+            netGImage.optimizer.zero_grad()
             # netGImage disc. loss
             output = netDImage(fakeImage)
 
@@ -249,6 +250,7 @@ for epoch in range(1, args.epochs + 1):
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
                 errG_I = criterion_rf(output, label_rf)
+            errG_I.backward(retain_variables=True)
 
             # latent -> image -> latent loss
             # output = netGLatent(fakeImage)
@@ -263,16 +265,16 @@ for epoch in range(1, args.epochs + 1):
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
                 errG_L = criterion_rf(output, label_rf)
+            errG_L.backward(retain_variables=True)
 
             # image -> latent -> image loss
             output = netGImage(fakeLatent)
-            circle_I = torch.mean(torch.abs(input - output))
-            errG = errG_I + errG_L +  circle_I * args.lbda
-            netGLatent.optimizer.zero_grad()
-            netGImage.optimizer.zero_grad()
-            errG.backward()
+            circle_I = args.lbda * torch.mean(torch.abs(input - output))
+            circle_I.backward()
             netGLatent.optimizer.step()
             netGImage.optimizer.step()
+
+            errG = errG_I + errG_L +  circle_I * args.lbda
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
                      errD_L.data[0], D_L_x, D_L_z,

@@ -49,7 +49,8 @@ def load_dataset(args):
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
-        trainset = dset.ImageFolder(root=args.dataroot + args.dataset, [transform, target_transform])
+        trainset = dset.ImageFolder(root=args.dataroot + args.dataset)
+
     return trainloader, nc
 
 
