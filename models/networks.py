@@ -185,6 +185,7 @@ class ResnetBlock(nn.Module):
     def __init__(self, dim, norm_layer=nn.BatchNorm2d):
         super(ResnetBlock, self).__init__()
         self.conv_block = self.build_conv_block(dim, norm_layer)
+        self._reset_parameters()
 
     def build_conv_block(self, dim, norm_layer):
         conv_block = []
@@ -198,6 +199,9 @@ class ResnetBlock(nn.Module):
 
         return nn.Sequential(*conv_block)
 
+    def _reset_parameters(self):
+        self.conv_block.apply(weights_init)
+
     def forward(self, x):
         out = x + self.conv_block(x)
         return out
@@ -207,12 +211,16 @@ class CoBlock(nn.Module):
     def __init__(self, dim_in, dim_out, norm_layer=nn.BatchNorm2d, non_linearity=nn.ReLU, stride=1, kernel_size=3, padding=1, bias=True):
         super(CoBlock, self).__init__()
         self.conv_block = self.build_conv_block(dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity, bias)
+        self._reset_parameters()
 
     def build_conv_block(self, dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity, bias):
         conv_block = [nn.Conv2d(dim_in, dim_out, kernel_size=kernel_size, padding=padding, stride=stride, bias=bias)]
         conv_block += [norm_layer(dim_out)]
         conv_block += [non_linearity()]
         return nn.Sequential(*conv_block)
+
+    def _reset_parameters(self):
+        self.conv_block.apply(weights_init)
 
     def forward(self, x):
         return self.conv_block(x)

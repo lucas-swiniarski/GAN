@@ -49,7 +49,9 @@ def load_dataset(args):
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
-        trainset = dset.ImageFolder(root=args.dataroot + args.dataset)
+        trainset = dset.ImageFolder(root=args.dataroot + args.dataset, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
+        nc = 3
 
     return trainloader, nc
 

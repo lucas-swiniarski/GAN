@@ -280,7 +280,7 @@ for epoch in range(1, args.epochs + 1):
                      errD_L.data[0], D_L_x, D_L_z,
                      errD_I.data[0], D_I_x, D_I_z,
                      errG.data[0], errG_I.data[0], errG_L.data[0],
-                     circle_I.data[0]))
+                     circle_I.data[0] / args.lbda))
 
 
         if i % 100 == 0:
