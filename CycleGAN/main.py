@@ -12,6 +12,7 @@ import sys
 sys.path.append("..")
 import utils
 import functools
+import time
 
 sys.path.append("../models")
 import networks
@@ -28,6 +29,7 @@ parser.add_argument('--imageSize', type=int, default=32, help='number of data lo
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--outf', default='../TrainedNetworks', help='folder to output images and model checkpoints')
 parser.add_argument('--name', default='dcgan', help='Name used to save models')
+
 # parser.add_argument('--ngpu'  , type=int, default=1, help='number of GPUs to use')
 parser.add_argument('--cuda'  , action='store_true', help='enables cuda')
 parser.add_argument('--training-size', type=int, default=-1, help='How many examples of real data do we use, (default:-1 = Infinity)')
@@ -291,6 +293,6 @@ for epoch in range(1, args.epochs + 1):
 
     # do checkpointing
     netGImage.save('latest')
-    netGLate.save('latest')
+    netGLatent.save('latest')
     netDImage.save('latest')
     netDLatent.save('latest')

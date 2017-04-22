@@ -40,9 +40,16 @@ def load_dataset(args):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
-        trainset = dset.STL10(root=dataroot, split='train+unlabeled', download=True, transform=transform)
+        trainset = dset.STL10(root=args.dataroot, split='train+unlabeled', download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(args.workers))
         nc = 3
+    else:
+        transform = transforms.Compose([
+            transforms.Scale(args.imageSize),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ])
+        trainset = dset.ImageFolder(root=args.dataroot + args.dataset, [transform, target_transform])
     return trainloader, nc
 
 

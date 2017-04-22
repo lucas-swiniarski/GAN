@@ -61,7 +61,7 @@ def define_G(nz, nc, nf, imageSize, n_layers, n_residual, tensor, upsampling=Tru
         layers = layers + [nn.Dropout2d(p=dropout)] if dropout > 0 else layers
         layers += [ResnetBlock(dim_out_stack, norm) for residual in range(n_residual)]
         for layer in range(n_layers):
-            layers += [CoBlock(dim_out_stack, dim_out_stack, norm, non_linearity)]
+            layers += [CoBlock(dim_out_stack, dim_out_stack, norm, non_linearity, bias=False)]
             layers += [ResnetBlock(dim_out_stack, norm) for residual in range(n_residual)]
 
         if stack > 1:
@@ -121,12 +121,12 @@ def FeatureMapChanger(dim_in, dim_out, current_image_size=None, non_linearity=nn
     layers = []
     if up and upsampling:
         layers += [nn.UpsamplingNearest2d(scale_factor=2)]
-        layers += [CoBlock(dim_in, dim_out, norm_layer, non_linearity)]
+        layers += [CoBlock(dim_in, dim_out, norm_layer, non_linearity, bias=False)]
     elif up:
         if current_image_size == 1:
-            layers += [nn.ConvTranspose2d(dim_in, dim_out, 2, padding=0, stride=1)]
+            layers += [nn.ConvTranspose2d(dim_in, dim_out, 2, padding=0, stride=1, bias=False)]
         else:
-            layers += [nn.ConvTranspose2d(dim_in, dim_out, 4, padding=1, stride=2)]
+            layers += [nn.ConvTranspose2d(dim_in, dim_out, 4, padding=1, stride=2, bias=False)]
         layers += [norm_layer(dim_out)]
         layers += [non_linearity()]
     else:
@@ -204,12 +204,12 @@ class ResnetBlock(nn.Module):
 
 # Define a Convolution block
 class CoBlock(nn.Module):
-    def __init__(self, dim_in, dim_out, norm_layer=nn.BatchNorm2d, non_linearity=nn.ReLU, stride=1, kernel_size=3, padding=1):
+    def __init__(self, dim_in, dim_out, norm_layer=nn.BatchNorm2d, non_linearity=nn.ReLU, stride=1, kernel_size=3, padding=1, bias=True):
         super(CoBlock, self).__init__()
-        self.conv_block = self.build_conv_block(dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity)
+        self.conv_block = self.build_conv_block(dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity, bias)
 
-    def build_conv_block(self, dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity):
-        conv_block = [nn.Conv2d(dim_in, dim_out, kernel_size=kernel_size, padding=padding, stride=stride)]
+    def build_conv_block(self, dim_in, dim_out, kernel_size, padding, stride, norm_layer, non_linearity, bias):
+        conv_block = [nn.Conv2d(dim_in, dim_out, kernel_size=kernel_size, padding=padding, stride=stride, bias=bias)]
         conv_block += [norm_layer(dim_out)]
         conv_block += [non_linearity()]
         return nn.Sequential(*conv_block)
