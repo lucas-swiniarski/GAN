@@ -284,5 +284,7 @@ for epoch in range(1, args.epochs + 1):
                     , nrow=10)
 
     # do checkpointing
-    torch.save(netGImage.state_dict(), '%s/%s_netGImg_epoch_%d.pth' % (args.outf, args.name, epoch))
-    torch.save(netGLatent.state_dict(), '%s/%s_netGLat_epoch_%d.pth' % (args.outf, args.name, epoch))
+    netGImage.save('latest')
+    netGLate.save('latest')
+    netDImage.save('latest')
+    netDLatent.save('latest')

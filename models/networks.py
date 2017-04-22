@@ -4,6 +4,7 @@ import numpy as np
 from torch.autograd import Variable
 from pdb import set_trace as st
 import functools
+import torch.nn.functional as F
 
 ###############################################################################
 # Functions
@@ -223,10 +224,10 @@ class NonLinearity(nn.Module):
 
     def forward(self, x):
         if self.inplace:
-            F.ReLU(x, inplace=True)
+            F.relu(x, inplace=True)
             x.add_(torch.sign(x))
         else:
-            output = F.ReLU(x)
+            output = F.relu(x)
             return output + torch.sign(output)
 
 # Add gaussian Noise
