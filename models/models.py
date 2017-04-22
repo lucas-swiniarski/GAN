@@ -7,7 +7,7 @@ import torch.optim as optim
 class _netGImage(BaseModel):
     def initialize(self, args):
         non_linearity = networks.NonLinearity if args.gi_discontinuity else nn.ReLU
-        norm = networks.InstanceNorm if args.gi_in else nn.BatchNorm2d
+        norm = networks.InstanceNormalization if args.gi_in else nn.BatchNorm2d
         self.model = networks.define_G(args.nz, args.nc, args.ngif, args.imageSize, args.gi_n_layers,
                                             args.gi_n_residual, self.tensor, args.gi_upsampling, norm=norm,
                                             non_linearity=non_linearity, noise=args.gi_noise, dropout=args.gi_dropout, up_to=2, up=True)
@@ -33,7 +33,7 @@ class _netGImage(BaseModel):
 class _netGLatent(BaseModel):
     def initialize(self, args):
         non_linearity = networks.NonLinearity if args.gl_discontinuity else nn.ReLU
-        norm = networks.InstanceNorm if args.gl_in else nn.BatchNorm2d
+        norm = networks.InstanceNormalization if args.gl_in else nn.BatchNorm2d
         self.model = networks.define_G(args.nz, args.nc, args.nglf, args.imageSize, args.gl_n_layers,
                                             args.gl_n_residual, self.tensor, args.gl_upsampling, norm=norm,
                                             non_linearity=non_linearity, noise=args.gl_noise, dropout=args.gl_dropout, up_to=2, up=False)
