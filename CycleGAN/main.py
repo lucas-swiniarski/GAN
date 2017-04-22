@@ -141,6 +141,7 @@ fixed_latent = Variable(fixed_latent)
 critic_trained_times = 0
 
 for epoch in range(1, args.epochs + 1):
+    epoch_start_time = time.time()
     for i, (data, _) in enumerate(trainloader, 0):
 
         batch_size = data.size(0)
@@ -156,7 +157,7 @@ for epoch in range(1, args.epochs + 1):
         ############################
         # (1) Update D Image network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
-
+        netDImage.optimizer.zero_grad()
         # train with real
         output = netDImage(input)
 
@@ -165,9 +166,9 @@ for epoch in range(1, args.epochs + 1):
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
             errD_I_real = criterion_rf(output, label_rf)
+            errD_I_real.backward()
 
         D_I_x = output.data.mean()
-
 
         # train with fake
         output = netDImage(fakeImage.detach())
@@ -177,13 +178,14 @@ for epoch in range(1, args.epochs + 1):
         else:
             label_rf.data.fill_(fake_label)
             errD_I_fake = criterion_rf(output, label_rf)
+            errD_I_fake.backward()
 
         D_I_z = output.data.mean()
 
         # Step
         errD_I = errD_I_real + errD_I_fake
-        netDImage.optimizer.zero_grad()
-        errD_I.backward()
+        if args.wasserstein:
+            errD_I.backward()
         netDImage.optimizer.step()
 
         if args.clamp:
@@ -192,7 +194,7 @@ for epoch in range(1, args.epochs + 1):
         ############################
         # (2) Update D Latent network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
-
+        netDLatent.optimizer.zero_grad()
         # train with real
         output = netDLatent(latent)
         D_L_x = output.data.mean()
@@ -201,6 +203,7 @@ for epoch in range(1, args.epochs + 1):
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
             errD_L_real = criterion_rf(output, label_rf)
+            errD_L_real.backward()
 
         # train with fake
         output = netDLatent(fakeLatent.detach())
@@ -211,11 +214,12 @@ for epoch in range(1, args.epochs + 1):
         else:
             label_rf.data.fill_(fake_label)
             errD_L_fake = criterion_rf(output, label_rf)
+            errD_L_fake.backward()
 
         # Step
         errD_L = errD_L_real + errD_L_fake
-        netDLatent.optimizer.zero_grad()
-        errD_L.backward()
+        if args.wasserstein:
+            errD_L.backward()
         netDLatent.optimizer.step()
 
         if args.clamp:
@@ -282,6 +286,8 @@ for epoch in range(1, args.epochs + 1):
             vutils.save_image(fake.data,
                     '%s/%s_fake_samples_epoch_%03d.png' % (args.outf, args.name, epoch)
                     , nrow=10)
+    print('End of epoch %d / %d \t Time Taken: %d sec' %
+      (epoch, args.epochs, time.time() - epoch_start_time))
 
     # do checkpointing
     netGImage.save('latest')
