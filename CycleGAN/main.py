@@ -155,13 +155,10 @@ for epoch in range(1, args.epochs + 1):
 
         fakeImage = netGImage(latent)
         fakeLatent = netGLatent(input)
-        fakeLatent.data.resize_(batch_size, args.nz, 1, 1)
-        
+
         ############################
         # (1) Update D Image network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
-
-        netDImage.zero_grad()
 
         # train with real
 
@@ -189,9 +186,9 @@ for epoch in range(1, args.epochs + 1):
 
         # Step
         errD_I = errD_I_real + errD_I_fake
-        optimizerDImage.zero_grad()
+        netDImage.optimizer.zero_grad()
         errD_I.backward()
-        optimizerDImage.step()
+        netDImage.optimizer.step()
 
         if args.clamp:
             netDImage.apply(functools.partial(networks.weights_clamp, c=args.c))
@@ -222,9 +219,9 @@ for epoch in range(1, args.epochs + 1):
 
         # Step
         errD_L = errD_L_real + errD_L_fake
-        optimizerDLatent.zero_grad()
+        netDLatent.optimizer.zero_grad()
         errD_L.backward()
-        optimizerDLatent.step()
+        netDLatent.optimizer.step()
 
         if args.clamp:
             netDLatent.apply(functools.partial(networks.weights_clamp, c=args.c * 10))
@@ -270,9 +267,11 @@ for epoch in range(1, args.epochs + 1):
             output = netGImage(fakeLatent)
             circle_I = torch.mean(torch.abs(input - output))
             errG = errG_I + errG_L +  circle_I * args.lbda
-            optimizerG.zero_grad()
+            netGLatent.optimizer.zero_grad()
+            netGImage.optimizer.zero_grad()
             errG.backward()
-            optimizerG.step()
+            netGLatent.optimizer.step()
+            netGImage.optimizer.step()
             print('Fake : [Mean : %.4f Std : %.4f] Real : [Mean : %.4f Std : %.4f] ' % (fakeLatent.data.mean(), fakeLatent.data.std(dim=1).mean(), latent.data.mean(), latent.data.std(dim=1).mean()))
             print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),

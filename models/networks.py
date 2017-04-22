@@ -56,7 +56,7 @@ def define_G(nz, nc, nf, imageSize, n_layers, n_residual, tensor, upsampling=Tru
         current_image_size = current_image_size * 2 if up else current_image_size // 2
         if noise > 0:
             layers += [Noiser(noise, tensor)]
-        layers += [nn.Dropout2d(p=dropout)]
+        layers += [nn.Dropout2d(p=dropout)] if dropout > 0
         layers += [ResnetBlock(dim_out_stack, norm) for residual in range(n_residual)]
         for layer in range(n_layers):
             layers += [CoBlock(dim_out_stack, dim_out_stack, norm, non_linearity)]
@@ -85,16 +85,15 @@ def define_D(nc, nf, imageSize, n_layers,  n_residual, has_sigmoid, dropout=0):
         dim_out_stack = stack_dim if stack == 0 else stack_dim * 2
         stack_dim = stack_dim if stack == 0 else stack_dim * 2
         layers += FeatureMapChanger(dim_in_stack, dim_out_stack, non_linearity=non_linearity, up=False)
-        layers += [nn.Dropout2d(p=dropout)]
+        layers += [nn.Dropout2d(p=dropout)] if dropout > 0
         layers += [ResnetBlock(dim_out_stack) for residual in range(n_residual)]
         for layer in range(n_layers):
             layers += [CoBlock(dim_out_stack, dim_out_stack, non_linearity=non_linearity)]
-            layers += [nn.Dropout2d(p=dropout)]
+            layers += [nn.Dropout2d(p=dropout)] if dropout > 0
             layers += [ResnetBlock(dim_out_stack) for residual in range(n_residual)]
 
     layers += [nn.Conv2d(dim_out_stack, 1, 2)]
-    if has_sigmoid:
-        layer += [nn.Sigmoid()]
+    layer += [nn.Sigmoid()] if has_sigmoid
     netD = nn.Sequential(*layers)
     netD.apply(weights_init)
     return netD
