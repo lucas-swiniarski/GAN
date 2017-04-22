@@ -18,6 +18,7 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+
 def weights_clamp(m, c=0.01):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:

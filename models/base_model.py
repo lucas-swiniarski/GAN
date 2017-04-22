@@ -9,7 +9,7 @@ class BaseModel():
     def __init__(self, args):
         self.args = args
         self.tensor = torch.cuda.FloatTensor if args.cuda else torch.Tensor
-        self.save_dir = os.path.join(args.dataroot, args.name)
+        self.save_dir = os.path.join(args.outf, args.name)
         self.old_lr = args.lr
 
     def forward(self, x):
@@ -26,7 +26,7 @@ class BaseModel():
         save_filename = '%s_net_%s.pth' % (epoch_label, network_label)
         save_path = os.path.join(self.save_dir, save_filename)
         torch.save(network.cpu().state_dict(), save_path)
-        if args.cuda and torch.cuda.is_available():
+        if self.args.cuda and torch.cuda.is_available():
             network.cuda()
 
     # helper loading function that can be used by subclasses
