@@ -3,3 +3,8 @@ dcgan_images/*
 data/*
 TrainedNetworks/*
 *.pyc
+*/*.pyc
+*/**/*.pyc
+*/**/**/*.pyc
+*/**/**/**/*.pyc
+*/**/**/**/**/*.pyc

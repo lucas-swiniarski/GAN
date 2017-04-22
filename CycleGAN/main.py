@@ -13,6 +13,9 @@ sys.path.append("..")
 import utils
 import functools
 
+sys.path.append("../models")
+import networks
+
 # For printing in real time on HPC
 # sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
@@ -20,11 +23,12 @@ parser = argparse.ArgumentParser()
 # Global parameters :
 parser.add_argument('--dataset', type=str, default='mnist',help='cifar10 | lsun | imagenet | folder | lfw ')
 parser.add_argument('--dataroot', default='../data', type=str, help='path to dataset')
-parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
+parser.add_argument('--workers', type=int, default=2, help='number of data loading workers')
+parser.add_argument('--imageSize', type=int, default=32, help='number of data loading workers')
 parser.add_argument('--batchSize', type=int, default=64, help='input batch size')
 parser.add_argument('--outf', default='../TrainedNetworks', help='folder to output images and model checkpoints')
 parser.add_argument('--name', default='dcgan', help='Name used to save models')
-parser.add_argument('--ngpu'  , type=int, default=1, help='number of GPUs to use')
+# parser.add_argument('--ngpu'  , type=int, default=1, help='number of GPUs to use')
 parser.add_argument('--cuda'  , action='store_true', help='enables cuda')
 parser.add_argument('--training-size', type=int, default=-1, help='How many examples of real data do we use, (default:-1 = Infinity)')
 
@@ -34,22 +38,40 @@ parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, def
 parser.add_argument('--adam', action='store_true', help='Default RMSprop optimizer, wether to use Adam instead')
 parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
 
-# Generator Parameters :
-parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
-parser.add_argument('--ngf', type=int, default=64)
-parser.add_argument('--bng-momentum', type=float, default=0.1, help='Momentum of BatchNorm Generator')
-parser.add_argument('--model-g', type=str, default='base', help='Generator model : base | upsampling | residual')
-parser.add_argument('--noise-unconnex', action='store_true', help='Train with an Unconnex Noise vector (No N(0,1))')
-parser.add_argument('--g-discontinuity', action='store_true', help='G with discontinuity')
+# Image Generator Parameters :
+parser.add_argument('--ngif', type=int, default=64)
+parser.add_argument('--gi-upsampling', action='store_true', help='Upsampling vs. Deconvolution')
+parser.add_argument('--gi-n-residual', type=int, default=0)
+parser.add_argument('--gi-n-layers', type=int, default=0, help='Convolution Layers between Upsampling layers')
+parser.add_argument('--gi-discontinuity', action='store_true', help='G with discontinuity')
+parser.add_argument('--gi-in', action='store_true', help='G with InstanceNormalization instead of Batch Normalization')
+parser.add_argument('--gi-noise', type=float, default=0, help='Gaussian Noise at each layer')
+parser.add_argument('--gi-dropout', type=float, default=0, help='Dropout at each layer')
 
-# Discriminator Parameters :
-parser.add_argument('--noise', action='store_true', help='Add gaussian noise to real data')
-parser.add_argument('--ndf', type=int, default=64)
-parser.add_argument('--bnd-momentum', type=float, default=0.1, help='Momentum of BatchNorm Discriminator')
-parser.add_argument('--dropout', action='store_true', help='Dropouts on discriminator')
-parser.add_argument('--bias', action='store_true', help='Bias term on convolutions on discriminator')
+# Latent Generator Parameters :
+parser.add_argument('--nglf', type=int, default=64)
+parser.add_argument('--gl-upsampling', action='store_true', help='Upsampling vs. Deconvolution')
+parser.add_argument('--gl-n-residual', type=int, default=0)
+parser.add_argument('--gl-n-layers', type=int, default=0, help='Convolution Layers between Upsampling layers')
+parser.add_argument('--gl-discontinuity', action='store_true', help='G with discontinuity')
+parser.add_argument('--gl-in', action='store_true', help='G with InstanceNormalization instead of Batch Normalization')
+parser.add_argument('--gl-noise', type=float, default=0, help='Gaussian Noise at each layer')
+parser.add_argument('--gl-dropout', type=float, default=0, help='Dropout at each layer')
+
+# Discriminator Image Parameters :
+parser.add_argument('--ndif', type=int, default=64)
+parser.add_argument('--di-n-layers', type=int, default=0)
+parser.add_argument('--di-n-residual', type=int, default=0)
+parser.add_argument('--di-dropout',  type=float, default=.2, help='Dropouts on discriminator')
+parser.add_argument('--di-noise',  type=float, default=.2, help='Dropouts on discriminator')
+
+# Discriminator Latent Parameters :
+parser.add_argument('--ndlf', type=int, default=64)
+parser.add_argument('--dl-n-layers', type=int, default=4)
+parser.add_argument('--dl-dropout', type=float, default=.2, help='Dropouts on Latent Discriminator')
 
 # Gan type :
+parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--n-critic', type=int, default=1,help='Times training the discriminator vs generator')
 parser.add_argument('--clamp', action='store_true', help='Gan Discriminator')
 parser.add_argument('--wasserstein', action='store_true', default=False, help='Training a Wasserstein Gan or a DC-GAN')
@@ -62,57 +84,23 @@ parser.add_argument('--reg-factor', type=float, default=10, help='Improved WGAN 
 
 args = parser.parse_args()
 
-args.manualSeed = 1 # fix seed
-print("Random Seed: ", args.manualSeed)
+# fix seed
+args.manualSeed = 1
+print("Seed: ", args.manualSeed)
 random.seed(args.manualSeed)
 torch.manual_seed(args.manualSeed)
 
 print(args)
 
 ###
-# Import Generative and Disriminative Networks, depending on the data-set ( image size).
-###
-
-sys.path.append("../models/DiscriminativeNN")
-sys.path.append("../models/GenerativeNN")
-sys.path.append('../models/DiscriminativeLatentNN')
-
-if args.dataset == 'cifar10':
-    if args.model_g == 'base':
-        import GenCifar10 as ModelGImage
-    elif args.model_g == 'upsampling':
-        import GenCifar10Upsampling as ModelGImage
-    elif args.model_g == 'residual':
-        import GenCifar10Residual as ModelGImage
-    import DiscLatent as ModelDLatent
-    import DiscCifar10 as ModelMixed
-
-    imageSize, nc = 32, 3
-elif args.dataset == 'mnist':
-    if args.model_g == 'base':
-        import GenMnist as ModelGImage
-    elif args.model_g == 'upsampling':
-        import GenMnistUpsampling as ModelGImage
-    elif args.model_g == 'residual':
-        import GenMnistResidual as ModelGImage
-    import DiscLatent as ModelDLatent
-    import DiscMnist as ModelMixed
-
-    imageSize, nc = 28, 1
-elif args.dataset == 'stl10':
-    import GenStl10 as ModelGImage
-    import DiscLatent as ModelDLatent
-    import DiscStl10 as ModelMixed
-
-    imageSize, nc = 64, 3
-
-###
 # Import data-sets.
 ###
 
-trainloader, testloader, n_class = utils.load_dataset(args.dataset, args.dataroot, args.batchSize, imageSize, args.workers, args.training_size)
+trainloader, nc = utils.load_dataset(args)
+args.nc = nc
+args.tensor = torch.cuda.FloatTensor if args.cuda else torch.Tensor
 
-assert trainloader, testloader
+assert trainloader
 
 ###
 # Initialize networks and useful variables depending on training loss ( Jensen-Shanon, Wasserstein, ... ).
@@ -128,32 +116,19 @@ if not args.wasserstein:
         criterion_rf.cuda()
         label_rf = label_rf.cuda()
 
-netGImage = ModelGImage._netG(args.nz, args.ngf, nc, args.bng_momentum, args.g_discontinuity)
-netGImage.apply(utils.weights_init)
-print(netGImage)
+from models.create_models import create_model
 
-netDImage = ModelMixed._netD(args.ndf, nc, args.wasserstein, False, 0, args.bias, args.dropout, args.bnd_momentum, 0)
-netDImage.apply(utils.weights_init)
-print(netDImage)
+netGImage = create_model(args, 'g_image')
+netDImage = create_model(args, 'd_image')
+netGLatent = create_model(args, 'g_latent')
+netDLatent = create_model(args, 'd_latent')
 
-netGLatent = ModelMixed._netD(args.ndf, nc, args.wasserstein, False, 0, False, False, args.bng_momentum, 0, args.nz)
-netGLatent.apply(utils.weights_init)
-print(netGLatent)
-
-netDLatent = ModelDLatent._netD(args.ndf, args.nz, args.wasserstein, args.bias, args.bnd_momentum)
-netDLatent.apply(utils.weights_init)
-print(netDLatent)
-
-input = torch.FloatTensor(args.batchSize, 3, imageSize, imageSize)
+input = torch.FloatTensor(args.batchSize, 3, args.imageSize, args.imageSize)
 latent = torch.FloatTensor(args.batchSize, args.nz, 1, 1)
 # Fixed latent to plot generated images every 100 batches.
-fixed_latent = utils.generate_latent_tensor(100, args.nz, args.noise_unconnex, 0, torch.range(0, 9).repeat(10).long(), 0)
+fixed_latent = torch.FloatTensor(100, args.nz, 1, 1)
 
 if args.cuda:
-    netGImage.cuda()
-    netDImage.cuda()
-    netGLatent.cuda()
-    netDLatent.cuda()
     input = input.cuda()
     latent = latent.cuda()
     fixed_latent = fixed_latent.cuda()
@@ -161,21 +136,6 @@ if args.cuda:
 input = Variable(input)
 latent = Variable(latent)
 fixed_latent = Variable(fixed_latent)
-
-if args.adam:
-    optimizerDLatent = optim.Adam(netDLatent.parameters(), lr = args.lr * 100, betas = (args.beta1, 0.999))
-    optimizerDImage = optim.Adam(netDImage.parameters(), lr = args.lr, betas = (args.beta1, 0.999))
-    optimizerG = optim.Adam([{'params' : netGLatent.parameters()}, {'params' : netGImage.parameters()}], lr = args.lr, betas = (args.beta1, 0.999))
-else:
-    optimizerDLatent = optim.RMSprop(netDLatent.parameters(), lr = args.lr)
-    optimizerDImage = optim.RMSprop(netDImage.parameters(), lr = args.lr)
-    optimizerG = optim.RMSprop([{'params' : netGLatent.parameters()}, {'params' : netGImage.parameters()}], lr = args.lr)
-
-if args.ngpu > 1:
-    gpu_ids = range(ngpu)
-    optimizerDLatent = torch.nn.DataParallel(optimizerDLatent, device_ids=gpu_ids)
-    optimizerDImage = torch.nn.DataParallel(optimizerDImage, device_ids=gpu_ids)
-    optimizerG = torch.nn.DataParallel(optimizerG, device_ids=gpu_ids)
 
 # Keeps tracks of discriminator vs generator number of training
 critic_trained_times = 0
@@ -186,23 +146,21 @@ for epoch in range(1, args.epochs + 1):
         batch_size = data.size(0)
 
         input.data.resize_(data.size()).copy_(data)
-        if args.noise:
-            noise = torch.FloatTensor(data.size()).normal_(0, .01)
+        if args.di_noise > 0:
+            noise = args.tensor(data.size()).normal_(0, args.di_noise)
             if args.cuda:
                 noise = noise.cuda()
             input.data.add_(noise)
-
-        latent.data.resize_(batch_size, args.nz, 1, 1).copy_(utils.generate_latent_tensor(batch_size, args.nz, args.noise_unconnex, 0))
+        latent.data.resize_(batch_size, args.nz, 1, 1).normal_(0, 1)
 
         fakeImage = netGImage(latent)
-        fakeLatent = netGLatent(input)[0]
+        fakeLatent = netGLatent(input)
         fakeLatent.data.resize_(batch_size, args.nz, 1, 1)
-
+        
         ############################
         # (1) Update D Image network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
 
-        netDImage.train()
         netDImage.zero_grad()
 
         # train with real
@@ -210,24 +168,24 @@ for epoch in range(1, args.epochs + 1):
         output = netDImage(input)
 
         if args.wasserstein:
-            errD_I_real = - torch.mean(output[0])
+            errD_I_real = - torch.mean(output)
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
-            errD_I_real = criterion_rf(output[0], label_rf)
+            errD_I_real = criterion_rf(output, label_rf)
 
-        D_I_x = output[0].data.mean()
+        D_I_x = output.data.mean()
 
 
         # train with fake
         output = netDImage(fakeImage.detach())
 
         if args.wasserstein:
-            errD_I_fake = torch.mean(output[0])
+            errD_I_fake = torch.mean(output)
         else:
             label_rf.data.fill_(fake_label)
-            errD_I_fake = criterion_rf(output[0], label_rf)
+            errD_I_fake = criterion_rf(output, label_rf)
 
-        D_I_z = output[0].data.mean()
+        D_I_z = output.data.mean()
 
         # Step
         errD_I = errD_I_real + errD_I_fake
@@ -236,7 +194,7 @@ for epoch in range(1, args.epochs + 1):
         optimizerDImage.step()
 
         if args.clamp:
-            netDImage.apply(functools.partial(utils.weights_clamp, c=args.c))
+            netDImage.apply(functools.partial(networks.weights_clamp, c=args.c))
 
         ############################
         # (2) Update D Latent network: maximize log(D(x)) + log(1 - D(G(z)))
@@ -244,23 +202,23 @@ for epoch in range(1, args.epochs + 1):
 
         # train with real
         output = netDLatent(latent)
-        D_L_x = output[0].data.mean()
+        D_L_x = output.data.mean()
 
         if args.wasserstein:
-            errD_L_real = - torch.mean(output[0])
+            errD_L_real = - torch.mean(output)
         else:
             label_rf.data.resize_(batch_size).fill_(real_label)
-            errD_L_real = criterion_rf(output[0], label_rf)
+            errD_L_real = criterion_rf(output, label_rf)
 
         # train with fake
         output = netDLatent(fakeLatent.detach())
-        D_L_z = output[0].data.mean()
+        D_L_z = output.data.mean()
 
         if args.wasserstein:
-            errD_L_fake = torch.mean(output[0])
+            errD_L_fake = torch.mean(output)
         else:
             label_rf.data.fill_(fake_label)
-            errD_L_fake = criterion_rf(output[0], label_rf)
+            errD_L_fake = criterion_rf(output, label_rf)
 
         # Step
         errD_L = errD_L_real + errD_L_fake
@@ -269,7 +227,7 @@ for epoch in range(1, args.epochs + 1):
         optimizerDLatent.step()
 
         if args.clamp:
-            netDLatent.apply(functools.partial(utils.weights_clamp, c=args.c * 10))
+            netDLatent.apply(functools.partial(networks.weights_clamp, c=args.c * 10))
 
 
         critic_trained_times += 1
@@ -289,10 +247,10 @@ for epoch in range(1, args.epochs + 1):
             output = netDImage(fakeImage)
 
             if args.wasserstein:
-                errG_I = - torch.mean(output[0])
+                errG_I = - torch.mean(output)
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
-                errG_I = criterion_rf(output[0], label_rf)
+                errG_I = criterion_rf(output, label_rf)
 
             # latent -> image -> latent loss
             # output = netGLatent(fakeImage)
@@ -303,10 +261,10 @@ for epoch in range(1, args.epochs + 1):
             output = netDLatent(fakeLatent)
 
             if args.wasserstein:
-                errG_L = - torch.mean(output[0])
+                errG_L = - torch.mean(output)
             else:
                 label_rf.data.fill_(real_label) # fake labels are real for generator cost
-                errG_L = criterion_rf(output[0], label_rf)
+                errG_L = criterion_rf(output, label_rf)
 
             # image -> latent -> image loss
             output = netGImage(fakeLatent)
