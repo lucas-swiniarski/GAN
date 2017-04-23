@@ -231,7 +231,7 @@ for epoch in range(1, args.epochs + 1):
         #     netDLatent.model.apply(functools.partial(networks.weights_clamp, c=args.c * 10))
         #
         #
-        # critic_trained_times += 1
+        critic_trained_times += 1
 
         ############################
         # (3) Update G networks :
@@ -272,9 +272,15 @@ for epoch in range(1, args.epochs + 1):
             errG_L.backward(retain_variables=True)
 
             # image -> latent -> image loss
-            output = netGImage(fakeLatent)
+            output = netGImage(fakeLatent.detach())
             circle_I = args.lbda * torch.mean(torch.abs(input - output))
-            circle_I.backward()
+            circle_I.backward(retain_variables=True)
+
+            # latent -> image -> latent loss
+            output = netGLatent(fakeImage.detach())
+            circle_L = args.lbda * torch.mean(torch.abs(latent - output))
+            circle_L.backward()
+
             netGLatent.optimizer.step()
             netGImage.optimizer.step()
 
@@ -287,7 +293,7 @@ for epoch in range(1, args.epochs + 1):
                      errD_L.data[0], D_L_x, D_L_z,
                      errD_I.data[0], D_I_x, D_I_z,
                      errG.data[0], errG_I.data[0], errG_L.data[0],
-                     circle_I.data[0] / args.lbda))
+                     circle_I.data[0] / args.lbda, circle_L.data[0] / args.lbda))
 
 
         if i % 100 == 0:
