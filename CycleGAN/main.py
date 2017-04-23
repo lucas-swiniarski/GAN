@@ -243,7 +243,7 @@ for epoch in range(1, args.epochs + 1):
 
         if critic_trained_times == args.n_critic:
             critic_trained_times = 0
-            netGLatent.optimizer.zero_grad()
+
             netGImage.optimizer.zero_grad()
             # netGImage disc. loss
             output = netDImage(fakeImage)
@@ -256,33 +256,23 @@ for epoch in range(1, args.epochs + 1):
             errG_I.backward(retain_variables=True)
 
             # latent -> image -> latent loss
-            # output = netGLatent(fakeImage)
-            # circle_L = torch.mean(torch.pow(latent - output[0], 2))
-            circle_L = Variable(torch.FloatTensor([0]))
+            output = netGLatent(fakeImage)
+            circle_L = args.lbda * torch.mean(torch.abs(latent - output))
+            circle_L.backward()
 
-            # netGLatent disc. loss
-            # output = netDLatent(fakeLatent)
-            #
-            # if args.wasserstein:
-            #     errG_L = - torch.mean(output)
-            # else:
-            #     label_rf.data.fill_(real_label) # fake labels are real for generator cost
-            #     errG_L = criterion_rf(output, label_rf)
+            netGImage.optimizer.step()
+
+            netGLatent.optimizer.zero_grad()
+
             errG_L = torch.mean(torch.pow(fakeLatent, 2))
             errG_L.backward(retain_variables=True)
 
             # image -> latent -> image loss
-            output = netGImage(fakeLatent.detach())
+            output = netGImage(fakeLatent)
             circle_I = args.lbda * torch.mean(torch.abs(input - output))
             circle_I.backward(retain_variables=True)
 
-            # latent -> image -> latent loss
-            output = netGLatent(fakeImage.detach())
-            circle_L = args.lbda * torch.mean(torch.abs(latent - output))
-            circle_L.backward()
-
             netGLatent.optimizer.step()
-            netGImage.optimizer.step()
 
             errD_L = Variable(torch.FloatTensor([0]))
             D_L_x = 0
