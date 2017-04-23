@@ -18,7 +18,10 @@ sys.path.append("../models")
 import networks
 
 # For printing in real time on HPC
-# sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+#sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+# TODO@Lucas :
+# - Update Learning Rate final implementation
+# - Latent-Image-Latent add up latent components as learning goes
 
 parser = argparse.ArgumentParser()
 # Global parameters :
@@ -284,7 +287,7 @@ for epoch in range(1, args.epochs + 1):
 
 
         if i % 100 == 0:
-            vutils.save_image(utils.mix(input.data, netGImage(fakeLatent).data),
+            vutils.save_image(utils.mix(data, netGImage(fakeLatent).data),
                     '%s/%s_real_reconstruct_samples_epoch_%03d.png' % (args.outf, args.name, epoch))
             fake = netGImage(fixed_latent)
             vutils.save_image(fake.data,

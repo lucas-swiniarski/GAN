@@ -33,7 +33,7 @@ def load_dataset(args):
         trainset = dset.MNIST(root=args.dataroot, train=True, download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
         nc = 1
-    elif dataset == 'stl10':
+    elif args.dataset == 'stl10':
         transform = transforms.Compose([
             transforms.Scale(args.imageSize),
             transforms.ToTensor(),
@@ -41,7 +41,7 @@ def load_dataset(args):
         ])
 
         trainset = dset.STL10(root=args.dataroot, split='train+unlabeled', download=True, transform=transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batchSize, shuffle=True, num_workers=int(args.workers))
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batchSize, shuffle=True, num_workers=int(args.workers))
         nc = 3
     else:
         transform = transforms.Compose([
