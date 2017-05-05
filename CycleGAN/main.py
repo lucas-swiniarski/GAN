@@ -278,7 +278,7 @@ for epoch in range(1, args.epochs + 1):
             D_L_x = 0
             D_L_z = 0
             errG = errG_I + errG_L +  circle_I * args.lbda
-            print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f]'
+            print('[%d/%d][%d/%d] Loss_D_Latent : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_D_Image : %.4f [D(x) : %.4f D(G(z)) : %.4f] Loss_G : %.4f [Img : %.4f Lat : %.4f] Circle : [Img : %.4f Lat: %.4f]'
                   % (epoch, args.epochs, i, len(trainloader),
                      errD_L.data[0], D_L_x, D_L_z,
                      errD_I.data[0], D_I_x, D_I_z,
