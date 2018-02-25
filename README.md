@@ -2,6 +2,8 @@
 
 This Git Repository is the result of a research work made at NYU with Emily Denton and Rob Fergus on Generative Adversarial Networks.
 
+![Image Not Found](pictures/discriminator.png "Gaussian Mixture GAN fit preview")
+
 # Goal
 
 Our project's goal is :
